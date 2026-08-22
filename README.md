@@ -3,7 +3,7 @@
 An AI agent that manages, operates, deploys, and configures **Red Hat OpenShift AI** via GitOps — in both connected and disconnected (air-gapped) environments.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/Skills-19-green.svg)](skills/)
+[![Skills](https://img.shields.io/badge/Skills-22-green.svg)](skills/)
 [![MCP Servers](https://img.shields.io/badge/MCP_Tools-130+-purple.svg)](mcp-servers/)
 
 ---
@@ -43,7 +43,7 @@ Agent:  I'll guide you through the full disconnected deployment.
 │                     │         │                              │
 │  soul.md (identity) │────────▶│  ArgoCD    — GitOps lifecycle│
 │  rules.md (safety)  │────────▶│  RHOAI     — AI platform ops│
-│  19 skills          │────────▶│  OpenShift — Cluster ops     │
+│  22 skills          │────────▶│  OpenShift — Cluster ops     │
 │  4 workflows        │────────▶│  MLflow    — Experiment mgmt │
 │                     │────────▶│  GitHub    — Git operations  │
 └─────────────────────┘         └──────────────────────────────┘
@@ -57,8 +57,8 @@ Agent:  I'll guide you through the full disconnected deployment.
 | **Plan** | `capacity-forecaster`, `serving-runtime-advisor`, `training-planner` | Resource estimation and architecture planning |
 | **Administer** | `rhoai-dsc-inspector`, `rhoai-platform-status`, `rhoai-upgrade-advisor` | Platform configuration and maintenance |
 | **Develop** | `experiment-tracker`, `workbench-troubleshooter`, `pipeline-debugger` | ML development workflow support |
-| **Deploy** | `model-promotion-workflow`, `rhoai-model-lifecycle` | Model serving and promotion |
-| **Monitor** | `argocd-health-check`, `argocd-diagnose-sync`, `daily-report-generator`, `incident-runbook` | Observability and incident response |
+| **Deploy** | `model-promotion-workflow`, `rhoai-model-lifecycle`, `maas-enable`, `maas-deploy-model` | Model serving, MaaS gateway, and promotion |
+| **Monitor** | `argocd-health-check`, `argocd-diagnose-sync`, `daily-report-generator`, `incident-runbook`, `maas-debug` | Observability and incident response |
 | **Train** | *(planned)* | Training job management |
 | **Evaluate** | *(planned)* | Model benchmarking and comparison |
 | **Maintain Safety** | *(planned)* | Guardrails and compliance |
@@ -149,6 +149,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Key entry points:
 - **Add a skill**: Follow [skills/SKILL_SPEC.md](skills/SKILL_SPEC.md)
 - **Add a runtime**: See [runtimes/README.md](runtimes/README.md)
 - **Add an eval scenario**: See [eval/README.md](eval/README.md)
+
+## Acknowledgments
+
+- MaaS (Models-as-a-Service) skills adapted from [MichalSteczko/rhoai-agentic-skills](https://github.com/MichalSteczko/rhoai-agentic-skills) — production-tested on RHOAI 3.5 / OCP 4.21
 
 ## License
 
