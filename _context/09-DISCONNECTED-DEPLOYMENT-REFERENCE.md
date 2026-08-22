@@ -1,27 +1,8 @@
----
-name: rhoai-disconnected-deploy
-description: "Battle-tested procedure for deploying Red Hat OpenShift AI on a disconnected (air-gapped) OpenShift cluster — covers storage sizing, digest-pinned mirroring, workbench image gaps, dual-layer CA trust, DSC v2 API, and OCP 4.22+ Istio changes."
-version: 3.0.0
-author: RHOAI Platform Team
-license: Apache-2.0
-platforms: [linux]
-metadata:
-  hermes:
-    tags: [RHOAI, OpenShift AI, Disconnected, Air-gapped, oc-mirror, Mirror, DSC v2, DSCI, Deployment]
----
+# 09 — Disconnected RHOAI Deployment Reference
 
-# RHOAI Disconnected Deployment (v3)
-
-Deploy Red Hat OpenShift AI on a disconnected (air-gapped) OpenShift cluster. This procedure is derived from the [disconnected-rhoai](https://github.com/rh-aiservices-bu/disconnected-rhoai) reference repo, verified end-to-end on OCP 4.20 / RHOAI 3.4.2 and OCP 4.22 / RHOAI 3.4.3.
-
-## Trigger Conditions
-
-- "Deploy RHOAI in a disconnected environment"
-- "How do I set up OpenShift AI in an air-gapped cluster?"
-- "Generate the mirror configuration for RHOAI"
-- "What images do I need to mirror for OpenShift AI?"
-- "Install RHOAI operators offline"
-- "Set up RHOAI without internet access"
+> Ground-truth step-by-step procedure for deploying Red Hat OpenShift AI on a disconnected OpenShift cluster.
+> Derived from [rh-aiservices-bu/disconnected-rhoai](https://github.com/rh-aiservices-bu/disconnected-rhoai) (verified end-to-end on OCP 4.20.30 / RHOAI 3.4.2 and OCP 4.22.8 / RHOAI 3.4.3) and the official RHOAI 3.5 disconnected installation documentation.
+> Last updated: 2026-08-22
 
 ---
 
@@ -35,17 +16,6 @@ Deploy Red Hat OpenShift AI on a disconnected (air-gapped) OpenShift cluster. Th
 
 ---
 
-## Required MCP Tools
-
-| Server | Tool | Purpose |
-|--------|------|---------|
-| mcp_rhoai | cluster_summary | Check RHOAI installation status and DSC state |
-| mcp_rhoai | explore_cluster | Inspect platform health, workbenches, model serving |
-| mcp_openshift | resources_list | List Namespace, CatalogSource, IDMS, ITMS, Subscription, CSV, MCP |
-| mcp_argocd | list_applications | Check ArgoCD app state (GitOps path) |
-
----
-
 ## Storage Sizing (Critical)
 
 The RHOAI mirror is **~517 GB** (171 operator images + 63 workbench images). Three copies exist simultaneously during the push phase.
@@ -55,13 +25,9 @@ The RHOAI mirror is **~517 GB** (171 operator images + 63 workbench images). Thr
 | Low side (connected) | Archive + oc-mirror cache | ~1,055 GB | **1,500 GB** |
 | High side (disconnected) | Archive + cache + Quay storage | ~1,650 GB | **2,000 GB** |
 
-Tell the user these numbers **before** they begin. Running out of disk during the push phase can render the bastion unreachable (see Troubleshooting).
-
 ---
 
-## Procedure
-
-### Step 1: Install Mirror Registry
+## Step 1: Install Mirror Registry
 
 **Where:** High side (disconnected host).
 
@@ -79,7 +45,7 @@ tar -xzf mirror-registry-amd64.tar.gz -C ~/
 
 **Critical:** `--quayHostname` must be a FQDN that resolves from the cluster nodes, not just from the bastion.
 
-Trust the CA on the bastion:
+Trust the CA:
 
 ```bash
 sudo cp /home/$USER/quay-install/quay-rootCA/rootCA.pem \
@@ -94,11 +60,11 @@ Record these values — they are needed throughout:
 
 ---
 
-### Step 2: Configure Authentication
+## Step 2: Configure Authentication
 
 **Where:** Low side (for mirroring), High side (for pushing).
 
-Seed the container auth file with the Red Hat pull secret:
+Seed the container auth file with your Red Hat pull secret:
 
 ```bash
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
@@ -115,13 +81,11 @@ podman login --authfile $XDG_RUNTIME_DIR/containers/auth.json \
 
 ---
 
-### Step 3: Generate ImageSetConfiguration
+## Step 3: Generate ImageSetConfiguration
 
 **Where:** Low side (connected host).
 
-#### 3.1 Digest-pin the catalog images BEFORE mirroring
-
-**Critical:** The configuration must match what was recorded when the archive was built. Editing it afterwards — even just swapping a tag for its digest — makes `oc-mirror` fall back to the network during the push, which fails 403 on the disconnected host. **Never edit the ImageSetConfiguration after mirroring.**
+**Critical — Digest-pin the catalog images BEFORE mirroring.** The configuration must match what was recorded when the archive was built. Editing it afterwards — even just swapping a tag for its digest — makes `oc-mirror` fall back to the network during the push, which fails 403 on the disconnected host.
 
 Resolve the catalog digest:
 
@@ -131,13 +95,9 @@ skopeo inspect --raw docker://registry.redhat.io/redhat/redhat-operator-index:v$
   | jq -r '.manifests[] | select(.platform.architecture=="amd64") | .digest'
 ```
 
-Repeat for `certified-operator-index` if mirroring the GPU operator.
+**Critical — `defaultChannel` is REQUIRED** on every filtered package. Without it, oc-mirror emits "invalid default channel configuration" and refuses to generate the catalog.
 
-#### 3.2 `defaultChannel` is REQUIRED
-
-**Critical:** Every filtered package MUST include `defaultChannel`. Without it, oc-mirror emits `"invalid default channel configuration"` and refuses to generate the catalog.
-
-#### 3.3 ImageSetConfiguration (from verified deployment)
+### Real ImageSetConfiguration (from verified deployment)
 
 ```yaml
 apiVersion: mirror.openshift.io/v2alpha1
@@ -147,7 +107,7 @@ mirror:
     - catalog: registry.redhat.io/redhat/redhat-operator-index@sha256:<PINNED_DIGEST>
       packages:
         - name: rhods-operator
-          defaultChannel: stable-3.4
+          defaultChannel: stable-3.4    # MUST match channel name
           channels:
             - name: stable-3.4
               minVersion: "3.4.2"
@@ -171,12 +131,12 @@ mirror:
           channels:
             - name: stable
   additionalImages:
-    # 63 workbench images — see Step 3.4
+    # 63 workbench images — see Step 3a
 ```
 
-#### 3.4 The 63 images oc-mirror CANNOT find
+### Step 3a: The 63 images oc-mirror CANNOT find
 
-**Why:** Workbench and notebook images are referenced through runtime ImageStreams created by the RHOAI operator, NOT from the operator bundle's `relatedImages`. oc-mirror only processes `relatedImages`. Without these images, RHOAI installs and the dashboard loads, but creating a workbench fails with `ImagePullBackOff`.
+**Why:** Workbench and notebook images are referenced through runtime ImageStreams created by the RHOAI operator, NOT from the operator bundle's `relatedImages`. Without them, RHOAI installs and the dashboard loads, but creating a workbench fails with `ImagePullBackOff`.
 
 Fetch the version-matched list:
 
@@ -186,11 +146,13 @@ curl -sfL https://raw.githubusercontent.com/red-hat-data-services/rhoai-disconne
   | grep -oE '(quay\.io|registry\.redhat\.io)[^ ]+@sha256:[a-f0-9]+' | sort -u
 ```
 
-The helper repo tries `rhoai-<x.y.z>.md` then falls back to `rhoai-<x.y>.md`. Add every returned image to the `additionalImages` section. Budget an extra 100–200 GB for these images.
+The helper repo tries `rhoai-<x.y.z>.md` then falls back to `rhoai-<x.y>.md`. Add these to the `additionalImages` section.
+
+**Budget an extra 100-200 GB for these images.**
 
 ---
 
-### Step 4: Mirror to Disk
+## Step 4: Mirror to Disk
 
 **Where:** Low side (connected host).
 
@@ -208,9 +170,9 @@ oc-mirror --v2 \
 
 **Critical — `--cache-dir` is NOT optional.** The default is `$HOME/.oc-mirror` on the root filesystem. The cache reaches ~520 GB.
 
-**For NVIDIA images:** Add `--remove-signatures` to the mirror-to-disk command ONLY. The NVIDIA partner registry on `registry.connect.redhat.com` has no published sigstore signature, and one failing image fails the entire run. **Never pass `--remove-signatures` on the push step** — it blocks manifest rewriting and takes the entire rhods-operator bundle down.
+**For NVIDIA images:** Add `--remove-signatures` to the mirror-to-disk command (NOT to the push). The NVIDIA partner registry on `registry.connect.redhat.com` has no published sigstore signature, and one failing image fails the entire run.
 
-This takes **~8 hours** for the RHOAI batch. Monitor progress by watching the archive file size:
+This takes **~8 hours** for the RHOAI batch. Monitor progress by watching the archive file size, not the log:
 
 ```bash
 ls -l /mnt/mirror/criab-mirror/*.tar; sleep 30; ls -l /mnt/mirror/criab-mirror/*.tar
@@ -218,7 +180,7 @@ ls -l /mnt/mirror/criab-mirror/*.tar; sleep 30; ls -l /mnt/mirror/criab-mirror/*
 
 ---
 
-### Step 5: Transfer Across the Air Gap
+## Step 5: Transfer Across the Air Gap
 
 **Where:** Low side → High side.
 
@@ -231,11 +193,11 @@ rsync -a --partial --info=progress2 \
   ${USER}@${HIGH_IP}:/mnt/mirror/criab-mirror/
 ```
 
-Verify sizes match on both sides. For a 500 GB payload, checksums cost hours and rsync already verifies every block in transit.
+Verify sizes match on both sides — for a 500 GB payload, checksums cost hours and rsync already verifies every block in transit.
 
 ---
 
-### Step 6: Push to Mirror Registry
+## Step 6: Push to Mirror Registry
 
 **Where:** High side (disconnected host).
 
@@ -250,7 +212,7 @@ oc-mirror --v2 \
   docker://${MIRROR_REGISTRY}/rhoai
 ```
 
-**Do NOT pass `--remove-signatures` on the push.** It belongs only on the mirror-to-disk phase.
+**Do NOT pass `--remove-signatures` on the push.** It belongs only on the mirror-to-disk phase. On the push, it blocks manifest rewriting and takes the entire rhods-operator bundle down.
 
 This emits cluster resources under `working-dir/cluster-resources/`:
 
@@ -264,11 +226,11 @@ This emits cluster resources under `working-dir/cluster-resources/`:
 
 ---
 
-### Step 7: Configure the Cluster for the Mirror
+## Step 7: Configure the Cluster for the Mirror
 
 **Where:** High side, logged into the cluster.
 
-#### 7a. Add mirror registry credentials to global pull secret
+### 7a. Add mirror registry credentials to global pull secret
 
 ```bash
 oc get secret/pull-secret -n openshift-config \
@@ -278,9 +240,7 @@ oc registry login --registry="$MIRROR_REGISTRY" \
 oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=/tmp/ps.json
 ```
 
-#### 7b. Trust the registry CA cluster-wide (node-level)
-
-This is **layer 1** of registry CA trust — it enables CRI-O on each node to pull images from the mirror.
+### 7b. Trust the registry CA cluster-wide
 
 ```bash
 oc create configmap registry-cas -n openshift-config \
@@ -292,9 +252,7 @@ oc patch image.config.openshift.io/cluster --type=merge \
 
 The `..8443` in the key is not a typo — a literal `..` encodes the port separator in OpenShift's trusted CA config.
 
-**Layer 2** (pod-level trust for workbenches and pipelines) is handled later in Step 10 via `DSCInitialization.spec.trustedCABundle`. Pods do NOT mount the node trust store. Both layers are required.
-
-#### 7c. Apply IDMS and ITMS (this reboots every node)
+### 7c. Apply IDMS and ITMS (this reboots every node)
 
 ```bash
 oc apply -f working-dir/cluster-resources/idms-oc-mirror.yaml
@@ -304,22 +262,22 @@ oc get mcp -w   # Wait for UPDATED=True, UPDATING=False on all pools
 
 **NOT ICSP.** oc-mirror v2 generates ImageDigestMirrorSet and ImageTagMirrorSet. ICSP is deprecated.
 
-#### 7d. Disable default OperatorHub catalogs
+### 7d. Disable default OperatorHub catalogs
 
 ```bash
 oc patch OperatorHub cluster --type=merge \
   -p '{"spec":{"disableAllDefaultSources":true}}'
 ```
 
-#### 7e. Apply mirrored CatalogSources
+### 7e. Apply mirrored CatalogSources
 
 ```bash
 oc apply -f working-dir/cluster-resources/cs-*.yaml
 ```
 
-#### 7f. Create `redhat-operators` CatalogSource alias
+### 7f. Create `redhat-operators` CatalogSource alias
 
-**Why:** The ingress operator auto-creates a Subscription for `servicemeshoperator3` against the name `redhat-operators` and reconciles it. Without this alias, OSSM 3 never installs and KServe / Data Science Gateway cannot function.
+**Why:** The ingress operator auto-creates a Subscription for `servicemeshoperator3` against the name `redhat-operators` and reconciles it. Without this alias, OSSM 3 never installs.
 
 ```yaml
 apiVersion: operators.coreos.com/v1alpha1
@@ -340,23 +298,19 @@ Verify all CatalogSources are READY:
 oc get catalogsource -n openshift-marketplace
 ```
 
-The generated CatalogSource name from oc-mirror will be something like `cs-redhat-operator-index-sha256-8d67e`. Find the exact name:
+---
+
+## Step 8: Install Dependency Operators
+
+**Where:** High side. **Order matters.**
+
+Each operator follows the pattern: Namespace → OperatorGroup → Subscription. The CatalogSource name is generated by oc-mirror (e.g., `cs-redhat-operator-index-sha256-8d67e`). Find yours:
 
 ```bash
 oc get catalogsource -n openshift-marketplace -o name
 ```
 
-All Subscriptions in later steps must reference this exact generated name as their `source`.
-
----
-
-### Step 8: Install Dependency Operators
-
-**Where:** High side. **Order matters.**
-
-Each operator follows the pattern: Namespace → OperatorGroup → Subscription. The CatalogSource `source` name is generated by oc-mirror. Use the name discovered in Step 7f.
-
-#### Installation order
+### Installation order
 
 | # | Package | Namespace | Channel | Catalog | Why First |
 |---|---------|-----------|---------|---------|-----------|
@@ -365,11 +319,11 @@ Each operator follows the pattern: Namespace → OperatorGroup → Subscription.
 | 3 | `nfd` | `openshift-nfd` | `stable` | redhat-operator-index | Labels GPU nodes for NVIDIA operator |
 | 4 | `gpu-operator-certified` | `nvidia-gpu-operator` | `stable` | certified-operator-index | GPU drivers (optional, harmless without GPU nodes) |
 
-**OCP 4.22+ Istio difference:** On OCP 4.22+, the ingress operator installs Istio via Helm, NOT via an OLM Subscription. `servicemeshoperator3` is NOT needed. Instead, two images must be added to `additionalImages` in the ImageSetConfiguration:
+**OCP 4.22+ Istio difference:** On OCP 4.22+, the ingress operator installs Istio via Helm, NOT via an OLM Subscription. `servicemeshoperator3` is NOT needed. Instead, two images must be added to `additionalImages` manually:
 - `registry.redhat.io/openshift-service-mesh/istio-pilot-rhel9`
 - `registry.redhat.io/openshift-service-mesh/istio-proxyv2-rhel9`
 
-#### Example Subscription YAML (cert-manager)
+### Example Subscription YAML
 
 ```yaml
 apiVersion: v1
@@ -399,8 +353,6 @@ spec:
   installPlanApproval: Automatic
 ```
 
-Dependency operators use own-namespace scope (`targetNamespaces` pointing to their own namespace).
-
 Wait for each CSV to reach `Succeeded` before installing the next:
 
 ```bash
@@ -409,7 +361,7 @@ oc get csv -n cert-manager-operator -w
 
 ---
 
-### Step 9: Install RHOAI Operator
+## Step 9: Install RHOAI Operator
 
 **Where:** High side.
 
@@ -440,25 +392,15 @@ spec:
   startingCSV: rhods-operator.3.4.2
 ```
 
-**Note:** The RHOAI OperatorGroup uses `spec: {}` (AllNamespaces mode), unlike the dependency operators which use own-namespace scope. This is required because RHOAI manages resources across multiple namespaces.
-
-Wait for the CSV:
-
-```bash
-oc get csv -n redhat-ods-operator -w
-```
+**Note:** The RHOAI OperatorGroup uses `spec: {}` (AllNamespaces mode), unlike the dependency operators which use own-namespace scope.
 
 ---
 
-### Step 10: Apply DSCInitialization (BEFORE DataScienceCluster)
+## Step 10: Apply DSCInitialization (BEFORE DataScienceCluster)
 
-**Where:** High side. **This step MUST come before Step 11.**
+**Where:** High side.
 
-**Why this matters in disconnected:** RHOAI injects an `odh-trusted-ca-bundle` ConfigMap into every namespace it manages. Workbenches, pipeline pods, and model servers mount this ConfigMap — NOT the node trust store from Step 7b. Without the mirror registry's CA in `customCABundle`, anything inside a data science project that talks to the mirror over TLS fails with `x509: certificate signed by unknown authority` — even though the cluster's own image pulls succeed fine.
-
-This is **layer 2** of registry CA trust:
-- **Layer 1** (Step 7b): `image.config.openshift.io/cluster` `additionalTrustedCA` → node-level CRI-O image pulls
-- **Layer 2** (this step): `DSCInitialization` `customCABundle` → pod-level TLS (workbenches, pipelines, model servers)
+**Why this matters in disconnected:** RHOAI injects an `odh-trusted-ca-bundle` ConfigMap into every namespace it manages. Workbenches, pipeline pods, and model servers mount this ConfigMap. Without the mirror registry's CA in `customCABundle`, anything inside a data science project that talks to the mirror over TLS fails with `x509: certificate signed by unknown authority` — even though the cluster's own image pulls succeed (those use the node trust store from Step 7b, which pods do NOT mount).
 
 ```yaml
 apiVersion: dscinitialization.opendatahub.io/v1
@@ -487,27 +429,15 @@ oc wait --for=jsonpath='{.status.phase}'=Ready \
 
 ---
 
-### Step 11: Apply DataScienceCluster (v2 API)
+## Step 11: Apply DataScienceCluster (v2 API)
 
-**Where:** High side. **Only after Step 10 DSCI is Ready.**
+**Where:** High side.
 
-#### Why v2, not v1
+**Critical — Use v2 API, not v1.** RHOAI 3.x serves both v1 and v2; v2 is the storage version. v1 is accepted and converted, so it LOOKS like it works. But v1 cannot express `trainer`, `sparkoperator`, or `mlflowoperator` — these components didn't exist when v1 was defined. Whatever v1 cannot say, the operator defaults. `trainer` defaults to `Managed` and requires the JobSet operator, which is NOT in the mirror set. The DSC never reaches Ready.
 
-RHOAI 3.x serves both v1 and v2 of the DataScienceCluster API; v2 is the storage version. v1 is accepted and silently converted, so it LOOKS like it works. But:
+**Critical — Set every component explicitly.** An omitted component takes the operator default, which can change between z-streams. Use `Removed`, not omission.
 
-- v1 cannot express `trainer`, `sparkoperator`, or `mlflowoperator` — these components did not exist when v1 was defined
-- Whatever v1 cannot say, the operator defaults — `trainer` defaults to `Managed`
-- `trainer: Managed` requires the JobSet operator, which is NOT in the mirror set
-- The DSC never reaches Ready
-
-#### Field name changes in v2
-
-- `datasciencepipelines` (v1) → `aipipelines` (v2)
-- v2 drops `codeflare` and `modelmeshserving` (removed from product)
-
-#### Set every component explicitly
-
-An omitted component takes the operator default, which can change between z-streams. Use `Removed`, not omission.
+**Critical — Field name change:** `datasciencepipelines` in v1 is `aipipelines` in v2.
 
 ```yaml
 apiVersion: datasciencecluster.opendatahub.io/v2
@@ -551,20 +481,13 @@ spec:
 
 **Note on KServe:** v2 accepts ONLY `managementState`, `modelsAsService`, `nim`, `rawDeploymentServiceConfig`, and `wva`. The `serving:` block and `defaultDeploymentMode` from v1/2.x were REMOVED in 3.x — setting them is rejected by the CRD.
 
-Wait for the DSC:
-
-```bash
-oc get datasciencecluster default-dsc -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
-# Must be "True"
-```
-
 ---
 
-### Step 12: Verify
+## Step 12: Verify
 
-Run these checks in order.
+Run these checks in order:
 
-#### Mirror configuration
+### Mirror configuration
 
 ```bash
 # OperatorHub default sources disabled
@@ -583,7 +506,7 @@ oc get mcp  # UPDATED=True, UPDATING=False, DEGRADED=False
 oc get catalogsource -n openshift-marketplace
 ```
 
-#### Operators
+### Operators
 
 ```bash
 # All CSVs Succeeded
@@ -593,7 +516,7 @@ oc get csv -A | grep -v Succeeded
 oc get csv -A -o json | jq '[.items[] | select(.status.phase=="Failed")] | length'
 ```
 
-#### RHOAI
+### RHOAI
 
 ```bash
 # DSCI Ready (check phase, NOT condition — RHOAI 3.4.2 has no Ready condition on DSCI)
@@ -612,7 +535,7 @@ oc get gatewayclass data-science-gateway-class -o jsonpath='{.status.conditions[
 oc get route rhods-dashboard -n redhat-ods-applications
 ```
 
-#### Disconnected integrity
+### Disconnected integrity
 
 ```bash
 # NO ImagePullBackOff or ErrImagePull ANYWHERE
@@ -624,7 +547,7 @@ oc get pods -n openshift-marketplace | grep -cE 'ImagePullBackOff|ErrImagePull'
 
 ---
 
-## Troubleshooting
+## Troubleshooting (from battle-tested deployments)
 
 | Symptom | Root Cause | Fix |
 |---------|-----------|-----|
@@ -658,17 +581,6 @@ oc get pods -n openshift-marketplace | grep -cE 'ImagePullBackOff|ErrImagePull'
 
 ---
 
-## Safety Constraints
-
-- **Never** suggest `--continue-on-error` — partial mirrors cause silent failures downstream
-- **Never** skip CA configuration — both layers (node trust AND DSCI customCABundle) are required
-- **Never** assume network access — every command that contacts a registry must be explicitly placed on the correct side of the air gap
-- **Always** verify mirror completeness before deploying operators — a missing image causes indefinite `ImagePullBackOff`
-- **Always** apply DSCI before DSC — reversing the order causes x509 errors in workbenches and pipelines
-- **Never** embed registry credentials in YAML files or Git repositories — use Kubernetes secrets and the global pull secret exclusively
-
----
-
 ## References
 
 - [disconnected-rhoai repo](https://github.com/rh-aiservices-bu/disconnected-rhoai) — battle-tested scripts and worked examples
@@ -676,11 +588,3 @@ oc get pods -n openshift-marketplace | grep -cE 'ImagePullBackOff|ErrImagePull'
 - [RHOAI 3.5 disconnected docs](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.5/html/installing_and_uninstalling_openshift_ai_self-managed_in_a_disconnected_environment/)
 - [oc-mirror v2 docs](https://docs.redhat.com/en/documentation/openshift_container_platform/4.22/html/disconnected_environments/about-installing-oc-mirror-v2)
 - [ai-accelerator](https://github.com/redhat-ai-services/ai-accelerator) — GitOps-based RHOAI deployment framework
-
----
-
-## Related Skills
-
-- **rhoai-install-validator** — Post-deployment validation and health checking
-- **rhoai-upgrade** — Upgrading RHOAI in disconnected environments (re-mirror new version images)
-- **rhoai-dsc-configure** — Advanced DataScienceCluster component configuration
