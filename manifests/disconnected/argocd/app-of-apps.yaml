@@ -1,0 +1,38 @@
+# Root Application (app-of-apps pattern).
+# This is the ONLY Application the user applies directly.
+# It manages the 3 child Applications and enforces ordering via sync-waves.
+#
+# Without this root Application, the 3 child Applications would start
+# simultaneously and the deployment would fail because operators aren't
+# ready before DSCI/DSC are applied.
+#
+# BEFORE USING:
+# 1. Replace <YOUR_GITOPS_REPO_URL> with your deployment repo URL
+# 2. Replace <YOUR_BRANCH> with your target branch
+# 3. Ensure ALL placeholders in child directories are filled in first
+# 4. Apply the ArgoCD resource customizations (see argocd-health-checks.yaml)
+#
+# USAGE:
+#   oc apply -f app-of-apps.yaml
+#   # Then monitor in ArgoCD UI or:
+#   argocd app get rhoai-disconnected --refresh
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rhoai-disconnected
+  namespace: openshift-gitops
+spec:
+  project: default
+  source:
+    repoURL: <YOUR_GITOPS_REPO_URL>
+    targetRevision: <YOUR_BRANCH>
+    path: manifests/disconnected/argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openshift-gitops
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

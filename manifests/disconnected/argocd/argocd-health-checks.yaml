@@ -1,0 +1,119 @@
+# ArgoCD Resource Customizations for RHOAI deployment.
+#
+# WITHOUT THESE, ArgoCD cannot determine when operators and RHOAI CRDs are
+# actually ready. It considers a Subscription "healthy" the moment it exists,
+# which means it immediately applies the next sync-wave before the operator
+# is installed. The DSC then fails because its CRDs don't exist yet.
+#
+# APPLY THESE TO YOUR ARGOCD INSTANCE before deploying RHOAI.
+#
+# Option A: Patch the ArgoCD CR directly
+#   oc patch argocd openshift-gitops -n openshift-gitops --type merge \
+#     -p "$(cat argocd-health-checks.yaml)"
+#
+# Option B: Add to your ArgoCD CR manifest in Git
+#   Merge the spec.resourceHealthChecks block into your existing ArgoCD CR.
+#
+# These health checks are used by the ai-accelerator and odh-gitops repos.
+# Without them, sync-wave ordering is meaningless for operator dependencies.
+apiVersion: argoproj.io/v1beta1
+kind: ArgoCD
+metadata:
+  name: openshift-gitops
+  namespace: openshift-gitops
+spec:
+  resourceHealthChecks:
+    # Subscription: healthy when the installed CSV reaches Succeeded
+    - group: operators.coreos.com
+      kind: Subscription
+      check: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.installedCSV ~= nil and obj.status.installedCSV ~= "" then
+            hs.status = "Healthy"
+            hs.message = "Installed CSV: " .. obj.status.installedCSV
+          elseif obj.status.state == "AtLatestKnown" then
+            hs.status = "Healthy"
+            hs.message = "At latest known version"
+          elseif obj.status.state == "UpgradePending" then
+            hs.status = "Progressing"
+            hs.message = "Upgrade pending"
+          else
+            hs.status = "Progressing"
+            hs.message = "Waiting for operator installation"
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "Waiting for status"
+        end
+        return hs
+
+    # InstallPlan: healthy when approved and complete
+    - group: operators.coreos.com
+      kind: InstallPlan
+      check: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Complete" then
+            hs.status = "Healthy"
+            hs.message = "Install plan complete"
+          elseif obj.status.phase == "Installing" then
+            hs.status = "Progressing"
+            hs.message = "Installing"
+          elseif obj.status.phase == "RequiresApproval" then
+            hs.status = "Suspended"
+            hs.message = "Requires approval"
+          else
+            hs.status = "Progressing"
+            hs.message = obj.status.phase or "Unknown"
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "Waiting for status"
+        end
+        return hs
+
+    # DSCInitialization: healthy when .status.phase is Ready
+    - group: dscinitialization.opendatahub.io
+      kind: DSCInitialization
+      check: |
+        hs = {}
+        if obj.status ~= nil then
+          if obj.status.phase == "Ready" then
+            hs.status = "Healthy"
+            hs.message = "DSCInitialization is Ready"
+          elseif obj.status.phase == "Error" then
+            hs.status = "Degraded"
+            hs.message = "DSCInitialization error"
+          else
+            hs.status = "Progressing"
+            hs.message = obj.status.phase or "Reconciling"
+          end
+        else
+          hs.status = "Progressing"
+          hs.message = "Waiting for status"
+        end
+        return hs
+
+    # DataScienceCluster: healthy when Ready condition is True
+    - group: datasciencecluster.opendatahub.io
+      kind: DataScienceCluster
+      check: |
+        hs = {}
+        if obj.status ~= nil and obj.status.conditions ~= nil then
+          for _, c in ipairs(obj.status.conditions) do
+            if c.type == "Ready" then
+              if c.status == "True" then
+                hs.status = "Healthy"
+                hs.message = "DataScienceCluster is Ready"
+              else
+                hs.status = "Progressing"
+                hs.message = c.message or "Not ready"
+              end
+              return hs
+            end
+          end
+        end
+        hs.status = "Progressing"
+        hs.message = "Waiting for Ready condition"
+        return hs

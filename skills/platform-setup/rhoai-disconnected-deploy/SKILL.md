@@ -78,6 +78,10 @@ This repo includes battle-tested manifest templates that the agent should point 
 | DSCInitialization | `manifests/disconnected/rhoai/dsci.yaml` | Layer 2 CA trust (pod-level, customCABundle) |
 | DataScienceCluster v2 | `manifests/disconnected/rhoai/dsc-v2.yaml` | All 14 components explicit |
 | ArgoCD Applications | `manifests/disconnected/argocd/` | GitOps wrappers with sync-waves |
+| ArgoCD app-of-apps | `manifests/disconnected/argocd/app-of-apps.yaml` | Root Application (the ONLY one to apply directly) |
+| ArgoCD health checks | `manifests/disconnected/argocd/argocd-health-checks.yaml` | REQUIRED: teaches ArgoCD when Subscriptions/DSCI/DSC are healthy |
+
+**For GitOps path:** The ArgoCD health checks MUST be applied first. Without them, ArgoCD considers a Subscription "healthy" the moment it exists (not when the CSV reaches Succeeded), so it immediately advances to the next sync-wave before operators are installed. Then apply only the `app-of-apps.yaml` — it manages the 3 child Applications.
 
 **For each step below, tell the user: "Copy `<template file>` and replace `<PLACEHOLDER>` with your value" instead of generating the YAML inline.**
 
