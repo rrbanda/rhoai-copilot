@@ -33,25 +33,29 @@ Cleanly remove Red Hat OpenShift AI and its dependency operators from an OpenShi
 
 **Order matters. Uninstall is the REVERSE of install.**
 
+**Idempotent:** This procedure is safe to run even if RHOAI is already uninstalled or partially removed. Every command handles "not found" gracefully.
+
+**NotReady DSC is normal:** If the DSC shows `NotReady` (commonly due to `trainer` defaulting to Managed without JobSet), the delete still works. Do not try to fix the DSC before deleting it.
+
 ### Step 1: Delete the DataScienceCluster
 
 The RHOAI operator watches the DSC and removes its operands (pods, services, routes) when the DSC is deleted. Let it do its job before removing the operator.
 
 ```bash
-oc delete datasciencecluster --all --timeout=10m
+oc delete datasciencecluster --all --timeout=10m 2>/dev/null || echo "No DataScienceCluster found (already clean)"
 ```
 
 Verify operands are draining:
 
 ```bash
-oc get pods -n redhat-ods-applications -w
+oc get pods -n redhat-ods-applications -w 2>/dev/null
 # Wait until pod count drops to near zero
 ```
 
 ### Step 2: Delete the DSCInitialization
 
 ```bash
-oc delete dscinitialization --all --timeout=5m
+oc delete dscinitialization --all --timeout=5m 2>/dev/null || echo "No DSCInitialization found (already clean)"
 ```
 
 ### Step 3: Delete the RHOAI operator
@@ -94,23 +98,21 @@ oc delete csv -n cert-manager-operator --all 2>/dev/null
 
 Delete only the RHOAI-specific namespaces. NEVER delete shared namespaces like openshift-operators.
 
-```bash
-# RHOAI namespaces
-oc delete namespace redhat-ods-operator --timeout=5m 2>/dev/null
-oc delete namespace redhat-ods-applications --timeout=5m 2>/dev/null
-oc delete namespace redhat-ods-monitoring --timeout=5m 2>/dev/null
-oc delete namespace rhods-notebooks --timeout=5m 2>/dev/null
-oc delete namespace rhoai-model-registries --timeout=5m 2>/dev/null
+**Note:** Namespace deletion takes 30-60 seconds per namespace as Kubernetes runs finalizers. This is normal.
 
-# Dependency namespaces (only if they were created for RHOAI)
-oc delete namespace cert-manager-operator --timeout=5m 2>/dev/null
-oc delete namespace openshift-nfd --timeout=5m 2>/dev/null
-oc delete namespace nvidia-gpu-operator --timeout=5m 2>/dev/null
+```bash
+for ns in redhat-ods-operator redhat-ods-applications redhat-ods-monitoring \
+          rhods-notebooks rhoai-model-registries \
+          cert-manager-operator openshift-nfd nvidia-gpu-operator; do
+  oc delete namespace "$ns" --timeout=2m 2>/dev/null && echo "Deleted namespace $ns" || echo "Namespace $ns not found (already clean)"
+done
 ```
 
 ### Step 6: Clean up CRDs (optional)
 
-Only if doing a complete reset and no other ODH instance exists:
+**CRDs persisting after uninstall is expected and harmless.** The RHOAI operator creates ~38 CRDs during installation. After uninstalling the operator, the CRDs remain registered but have no instances. If you reinstall RHOAI, the new operator adopts the existing CRDs.
+
+Only delete CRDs if you want a completely clean slate and will NOT reinstall:
 
 ```bash
 oc get crd | grep -E 'opendatahub|datasciencecluster|dscinitialization|trustyai|kserve' | awk '{print $1}' | xargs -r oc delete crd
