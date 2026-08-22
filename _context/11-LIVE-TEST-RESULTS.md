@@ -70,7 +70,33 @@ Clean removal in ~50 seconds total. The rhoai-uninstall skill procedure works co
 
 ---
 
+## Cluster 2: OCP 4.20.22 (sandbox1213)
+
+| Field | Value |
+|-------|-------|
+| API | `https://api.<CLUSTER>:6443` |
+| Console | `https://console-openshift-console.apps.<CLUSTER>` |
+| User | `admin` / `<REDACTED>` |
+| OCP | 4.20.22 |
+| RHOAI | 3.5.0-ea.2 (already installed) |
+| rhoai-copilot | NOT deployed |
+| Build tool | podman available locally |
+| Registry | quay.io/rbrhssa |
+
+### Pending: Deploy rhoai-copilot Agent
+
+Next steps for a fresh conversation:
+1. Build agent image: `podman build -f runtimes/hermes/Containerfile -t quay.io/rbrhssa/rhoai-copilot:latest .`
+2. Push: `podman push quay.io/rbrhssa/rhoai-copilot:latest`
+3. Create namespace + secrets on cluster
+4. Deploy: `oc apply -k .`
+5. Deploy RHOAI MCP server
+6. Verify agent dashboard accessible
+7. Test agent conversation: "Deploy RHOAI on my cluster" / "Uninstall RHOAI"
+
 ## Pending Tests
 
+- [ ] Deploy rhoai-copilot agent on cluster 2
+- [ ] Test agent conversational flow via dashboard
 - [ ] CLI path: install cert-manager → OSSM3 → RHOAI → DSCI → DSC v2, run validator
 - [ ] GitOps path: scaffold repo, apply ArgoCD health checks + app-of-apps, monitor sync-waves
