@@ -1,6 +1,6 @@
 # Quick Start
 
-Deploy RHOAI Copilot on your OpenShift cluster in 5 minutes.
+Deploy RHOAI Copilot on your OpenShift cluster.
 
 > For the complete step-by-step guide with all MCP servers, troubleshooting, and verification,
 > see the [Full Deployment Guide](deployment-guide.md).
@@ -12,11 +12,10 @@ Deploy RHOAI Copilot on your OpenShift cluster in 5 minutes.
 - Red Hat OpenShift AI operator installed
 - `oc` CLI authenticated to your cluster
 - A Gemini API key ([get one here](https://aistudio.google.com/))
-- Podman or Docker (for building the image)
 
-## Steps
+## Deploy in 4 Steps
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/rrbanda/rhoai-copilot.git
@@ -26,23 +25,26 @@ cd rhoai-copilot
 ### 2. Build the agent image
 
 ```bash
-# IMPORTANT: Always specify linux/amd64 for OpenShift
-podman build --platform linux/amd64 \
-  -t quay.io/YOUR_ORG/rhoai-copilot:latest \
-  -f runtimes/hermes/Containerfile .
-
-podman push quay.io/YOUR_ORG/rhoai-copilot:latest
+# Build for linux/amd64 (required for OpenShift)
+make build push
 ```
 
-### 3. Create namespace and secrets
+Or use the pre-built image from GitHub Container Registry:
+```bash
+# Edit runtimes/hermes/deployment.yaml and set:
+#   image: ghcr.io/rrbanda/rhoai-copilot:latest
+```
+
+### 3. Create secrets
 
 ```bash
 oc new-project rhoai-copilot
 
 oc create secret generic rhoai-copilot-secrets \
-  --from-literal=gemini-api-key=YOUR_GEMINI_KEY \
-  --from-literal=argocd-api-token=YOUR_ARGOCD_TOKEN \
-  --from-literal=dashboard-password=YOUR_DASHBOARD_PASSWORD \
+  --from-literal=gemini-api-key='YOUR_GEMINI_KEY' \
+  --from-literal=argocd-api-token='YOUR_ARGOCD_TOKEN' \
+  --from-literal=argocd-base-url='https://openshift-gitops-server-openshift-gitops.apps.YOUR_CLUSTER' \
+  --from-literal=dashboard-password='YOUR_PASSWORD' \
   -n rhoai-copilot
 ```
 
@@ -51,25 +53,44 @@ See [Obtaining Credentials](../guides/obtaining-credentials.md) for how to get e
 ### 4. Deploy
 
 ```bash
-# Deploy agent + RHOAI MCP + all skills in one command
+# Deploys agent + RHOAI MCP + all 22 skills
 oc apply -k .
 ```
 
-### 5. Access the dashboard
+### 5. Validate
 
 ```bash
-oc get route rhoai-copilot -n rhoai-copilot -o jsonpath='{.spec.host}'
+# Wait for pods to start
+oc get pods -n rhoai-copilot -w
+
+# Run validation
+./scripts/validate-deployment.sh
 ```
 
-Open the URL in your browser and log in with `admin` / your dashboard password.
+### 6. Access the dashboard
 
-### 6. Try your first command
+```bash
+echo "https://$(oc get route rhoai-copilot -n rhoai-copilot -o jsonpath='{.spec.host}')"
+```
 
-In the chat interface, type:
+Log in with `admin` / your dashboard password. Type: *"Give me the platform health status"*
 
-> "Give me the platform health status"
+---
 
-The agent will query ArgoCD and RHOAI MCP servers and return a comprehensive health report.
+## Optional: Deploy Additional MCP Servers
+
+```bash
+# OpenShift MCP (cluster resource queries)
+oc apply -f mcp-servers/openshift/deployment.yaml
+
+# MLflow MCP (experiment tracking — requires MLflow deployed)
+oc apply -f mcp-servers/mlflow/deployment.yaml
+
+# GitHub MCP (just add token to secret)
+oc patch secret rhoai-copilot-secrets -n rhoai-copilot \
+  --type merge -p '{"data":{"github-token":"'$(echo -n "ghp_YOUR_TOKEN" | base64)'"}}'
+oc rollout restart deployment/rhoai-copilot -n rhoai-copilot
+```
 
 ---
 
@@ -77,11 +98,8 @@ The agent will query ArgoCD and RHOAI MCP servers and return a comprehensive hea
 
 | Guide | Description |
 |-------|-------------|
-| [Full Deployment Guide](deployment-guide.md) | Complete end-to-end deployment with all 5 MCP servers |
-| [MCP Server Setup](../guides/mcp-server-setup.md) | Detailed MCP server deployment (ArgoCD, RHOAI, OpenShift, MLflow, GitHub) |
-| [Obtaining Credentials](../guides/obtaining-credentials.md) | How to get each API token and key |
-| [Troubleshooting](../guides/troubleshooting.md) | Common errors and their fixes |
+| [Full Deployment Guide](deployment-guide.md) | Complete end-to-end with all 5 MCP servers |
+| [MCP Server Setup](../guides/mcp-server-setup.md) | Per-server deployment details |
+| [Obtaining Credentials](../guides/obtaining-credentials.md) | How to get each API key/token |
+| [Troubleshooting](../guides/troubleshooting.md) | Common errors and fixes |
 | [Environment Variables](../reference/environment-variables.md) | Complete env var reference |
-| [Disconnected Setup](disconnected-setup.md) | Air-gapped deployment adjustments |
-| [Architecture](../concepts/architecture.md) | How the system works |
-| [Custom Skills](../guides/custom-skills.md) | Extend the agent's capabilities |

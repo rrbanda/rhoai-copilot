@@ -67,6 +67,10 @@ spec:
                   name: rhoai-copilot-secrets
                   key: github-token
                   optional: true
+            - name: OPENSHIFT_MCP_URL
+              value: "http://openshift-mcp-server.ocp-mcp-server.svc.cluster.local:8080/mcp"
+            - name: MLFLOW_MCP_URL
+              value: "http://mlflow-mcp.redhat-ods-applications.svc.cluster.local:8080/mcp"
             - name: PATH
               value: "/sandbox/.venv/bin:/usr/local/bin:/tmp/work/.local/bin:/usr/bin:/bin"
             - name: VIRTUAL_ENV

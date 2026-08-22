@@ -1,6 +1,11 @@
 # RHOAI Copilot - Agent Configuration
-# This file defines MCP server connections and tool whitelists.
-# Environment variables (${VAR}) are resolved at runtime by the agent harness.
+# Environment variables (${VAR}) are resolved at runtime by entrypoint.sh.
+
+model:
+  default: "gemini-2.5-flash"
+  base_url: "https://generativelanguage.googleapis.com/v1beta/openai/"
+  provider: custom
+  api_key: "${GEMINI_API_KEY}"
 
 mcp_servers:
   argocd:
@@ -12,9 +17,11 @@ mcp_servers:
       ARGOCD_INSECURE: "true"
     timeout: 60
     connect_timeout: 30
+    supports_parallel_tool_calls: true
     tools:
+      resources: false
+      prompts: false
       include:
-        # Read operations
         - list_applications
         - get_application
         - get_application_resource_tree
@@ -24,28 +31,24 @@ mcp_servers:
         - get_resource_actions
         - list_clusters
         - get_appproject
-        # Write operations (Tier 2 - controlled)
         - sync_application
 
   rhoai:
-    url: "${RHOAI_MCP_URL}"
+    url: "http://rhoai-mcp.rhoai-copilot.svc:8000/mcp"
     timeout: 60
     connect_timeout: 30
     tools:
       include:
-        # Project and cluster overview
         - list_data_science_projects
         - get_project_details
         - get_project_status
         - get_cluster_resources
         - cluster_summary
         - project_summary
-        # Workbench operations
         - list_workbenches
         - get_workbench
         - get_workbench_url
         - list_notebook_images
-        # Model serving
         - list_inference_services
         - get_inference_service
         - list_serving_runtimes
@@ -53,27 +56,22 @@ mcp_servers:
         - prepare_model_deployment
         - check_deployment_prerequisites
         - estimate_serving_resources
-        # Model Registry
         - list_registered_models
         - get_registered_model
         - list_model_versions
         - get_model_artifacts
-        # Training
         - list_training_jobs
         - get_training_progress
         - list_training_runtimes
         - estimate_resources
-        # Data and storage
         - list_data_connections
         - list_storage
         - get_pipeline_server
-        # Diagnostics
         - explore_cluster
         - diagnose_resource
         - multi_resource_status
         - resource_status
         - list_resource_names
-        # Tier 2: Scoped write operations
         - create_workbench
         - start_workbench
         - stop_workbench
@@ -107,3 +105,47 @@ mcp_servers:
         - search_code
         - create_or_update_file
         - list_commits
+
+gateway:
+  enabled: false
+
+dashboard:
+  enabled: true
+  host: "0.0.0.0"
+  port: 18789
+  basic_auth:
+    enabled: true
+    username: admin
+    password_hash: "placeholder"
+
+tools:
+  code_execution:
+    enabled: "on"
+    backend: local
+  file_operations:
+    enabled: "on"
+  web_search:
+    enabled: "off"
+  browser:
+    enabled: "off"
+
+toolsets:
+  skills: true
+  memory: true
+  session_search: true
+  delegation: true
+  cronjob: true
+  kanban: false
+
+delegation:
+  max_concurrent_children: 3
+
+memory:
+  enabled: true
+  providers: []
+
+skills:
+  enabled: true
+  directory: /tmp/work/.hermes/skills
+  curator:
+    enabled: true

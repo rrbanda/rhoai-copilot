@@ -32,9 +32,25 @@ for mount in /mnt/skill-*; do
   [ -f "$mount/SKILL.md" ] && cp "$mount/SKILL.md" "$SKILLS_DIR/$skill_name/SKILL.md"
 done
 
-# Copy soul and config
+# Copy soul and config (resolve env var placeholders)
 [ -f /mnt/soul/SOUL.md ] && cp /mnt/soul/SOUL.md "$WORK_DIR/SOUL.md"
-[ -f /mnt/config/config.yaml ] && cp /mnt/config/config.yaml "$WORK_DIR/config.yaml"
+if [ -f /mnt/config/config.yaml ]; then
+  envsubst < /mnt/config/config.yaml > "$WORK_DIR/config.yaml"
+fi
+
+# Remove MCP servers with empty URLs (not deployed)
+python3 -c "
+import yaml
+with open('${WORK_DIR}/config.yaml') as f:
+    cfg = yaml.safe_load(f)
+servers = cfg.get('mcp_servers', {})
+to_remove = [k for k, v in servers.items() if isinstance(v, dict) and v.get('url') == '']
+for k in to_remove:
+    del servers[k]
+    print(f'Removed MCP server \"{k}\" (not configured)')
+with open('${WORK_DIR}/config.yaml', 'w') as f:
+    yaml.dump(cfg, f, default_flow_style=False)
+"
 
 # Generate dashboard password hash
 HASH=$(python3 -c "

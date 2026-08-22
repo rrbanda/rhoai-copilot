@@ -1,0 +1,103 @@
+# OpenShift MCP Server
+# Provides cluster resource queries: pods, nodes, events, namespaces.
+# Deploy separately: oc apply -f mcp-servers/openshift/deployment.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ocp-mcp-server
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: openshift-mcp-server
+  namespace: ocp-mcp-server
+  labels:
+    app: openshift-mcp-server
+    app.kubernetes.io/part-of: rhoai-copilot
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openshift-mcp-server-cluster-reader
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-reader
+subjects:
+  - kind: ServiceAccount
+    name: openshift-mcp-server
+    namespace: ocp-mcp-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openshift-mcp-server
+  namespace: ocp-mcp-server
+  labels:
+    app: openshift-mcp-server
+    app.kubernetes.io/part-of: rhoai-copilot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openshift-mcp-server
+  template:
+    metadata:
+      labels:
+        app: openshift-mcp-server
+    spec:
+      serviceAccountName: openshift-mcp-server
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: ocp-mcp
+          image: quay.io/rbrhssa/openshift-mcp-server:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: HOME
+              value: "/tmp"
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openshift-mcp-server
+  namespace: ocp-mcp-server
+  labels:
+    app: openshift-mcp-server
+    app.kubernetes.io/part-of: rhoai-copilot
+spec:
+  selector:
+    app: openshift-mcp-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http

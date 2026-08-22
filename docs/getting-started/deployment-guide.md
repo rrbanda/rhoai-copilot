@@ -60,7 +60,18 @@ ENV HERMES_HOME=/sandbox/.hermes \
 EXPOSE 18789
 ```
 
-### 1.2 Build Option A: Local Build with Podman (Recommended)
+### 1.2 Option A: Use Pre-built Image (Fastest)
+
+The CI publishes a ready-to-use image on every push to main:
+
+```bash
+# Edit runtimes/hermes/deployment.yaml:
+#   image: ghcr.io/rrbanda/rhoai-copilot:latest
+```
+
+No build step needed — skip to Phase 2.
+
+### 1.3 Option B: Local Build with Podman
 
 OpenShift runs on AMD64. If you're building on an ARM Mac (Apple Silicon), you MUST specify the platform:
 
@@ -205,17 +216,34 @@ This creates:
 - Service (ClusterIP on port 18789)
 - Route (TLS edge termination with 300s timeout for long responses)
 
-### 2.6 Verify Pod is Running
+### 2.6 Verify Deployment
 
 ```bash
+# Quick check
 oc get pods -n rhoai-copilot
 # NAME                             READY   STATUS    RESTARTS   AGE
 # rhoai-copilot-xxxxx              1/1     Running   0          2m
+# rhoai-mcp-xxxxx                  1/1     Running   0          2m
 
-oc logs deployment/rhoai-copilot -n rhoai-copilot | tail -5
-# Config updated: credentials injected
-# === Starting Hermes gateway (background) ===
-# === Starting Hermes dashboard ===
+# Full validation (checks pods, MCP connectivity, Route, skills)
+./scripts/validate-deployment.sh
+```
+
+Expected output:
+```
+=== RHOAI Copilot Deployment Validation ===
+--- Core Components ---
+  [PASS] Agent pod — Running (0 restarts)
+  [PASS] RHOAI MCP pod — Running
+  [PASS] Route — https://rhoai-copilot-rhoai-copilot.apps.YOUR_CLUSTER (HTTP 401)
+  [PASS] PVC — Bound
+  [PASS] Secret — 4 keys configured
+--- MCP Server Connectivity ---
+  [PASS] RHOAI MCP — Responding (HTTP 200)
+--- Configuration ---
+  [PASS] Skill ConfigMaps — 22 skills mounted
+=== Summary ===
+  Result: ALL CHECKS PASSED
 ```
 
 ---

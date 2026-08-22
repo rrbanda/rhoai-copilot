@@ -90,9 +90,12 @@ oc create secret generic rhoai-copilot-secrets \
   --from-literal=argocd-base-url=https://YOUR_ARGOCD_URL \
   --from-literal=dashboard-password=YOUR_PASSWORD
 
-# Build and deploy
+# Build and deploy (or use pre-built: ghcr.io/rrbanda/rhoai-copilot:latest)
 make build push
 make deploy  # runs: oc apply -k .
+
+# Validate
+./scripts/validate-deployment.sh
 ```
 
 See [Quick Start](docs/getting-started/quickstart.md) for the 5-minute version, or the [Full Deployment Guide](docs/getting-started/deployment-guide.md) for the complete step-by-step walkthrough.
