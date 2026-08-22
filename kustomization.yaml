@@ -30,6 +30,9 @@ configMapGenerator:
   - name: skill-gitops-repo-scaffold
     files:
       - SKILL.md=skills/platform-setup/gitops-repo-scaffold/SKILL.md
+  - name: skill-rhoai-uninstall
+    files:
+      - SKILL.md=skills/platform-setup/rhoai-uninstall/SKILL.md
   - name: skill-rhoai-disconnected-deploy
     files:
       - SKILL.md=skills/platform-setup/rhoai-disconnected-deploy/SKILL.md
