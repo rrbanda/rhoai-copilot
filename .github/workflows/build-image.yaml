@@ -8,6 +8,8 @@ on:
       - 'runtimes/hermes/entrypoint.sh'
       - 'agent/**'
       - 'skills/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 env:
@@ -41,8 +43,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=sha,prefix=
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         uses: docker/build-push-action@v6

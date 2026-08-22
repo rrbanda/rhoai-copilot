@@ -9,6 +9,7 @@ resources:
   - runtimes/base/pvc.yaml
   - runtimes/base/service.yaml
   - runtimes/base/route.yaml
+  - runtimes/base/networkpolicy.yaml
   - runtimes/hermes/deployment.yaml
   - mcp-servers/rhoai/deployment.yaml
 

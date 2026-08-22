@@ -93,6 +93,16 @@ with open('${WORK_DIR}/config.yaml', 'w') as f:
 print('Config updated: credentials injected')
 PY
 
+# Initialize audit logging
+mkdir -p "$PERSIST_DIR/audit"
+export AUDIT_LOG_DIR="$PERSIST_DIR/audit"
+export AGENT_VERSION="${AGENT_VERSION:-0.1.0}"
+if [ -f /scripts/audit-logger.py ]; then
+  python3 /scripts/audit-logger.py setup
+elif [ -f /mnt/entrypoint/audit-logger.py ]; then
+  python3 /mnt/entrypoint/audit-logger.py setup
+fi
+
 trap 'cp ${WORK_DIR}/USER.md ${WORK_DIR}/MEMORY.md ${PERSIST_DIR}/ 2>/dev/null || true; echo State saved' SIGTERM SIGINT
 
 echo "=== Starting Hermes gateway (background) ==="

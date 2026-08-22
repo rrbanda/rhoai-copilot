@@ -70,9 +70,26 @@ restart:
 ## --- Evaluation ---
 
 eval:
-	@echo "=== Running evaluation scenarios ==="
-	@echo "TODO: Implement automated eval runner"
-	@ls eval/scenarios/*.yaml 2>/dev/null | wc -l | xargs -I{} echo "{} scenarios available"
+	@python3 eval/run_eval.py --list
+	@echo ""
+	@python3 eval/run_eval.py --output eval/results/report-$$(date +%Y%m%d).md
+	@echo "=== Report generated ==="
+
+eval-list:
+	@python3 eval/run_eval.py --list
+
+eval-report:
+	@mkdir -p eval/results
+	@python3 eval/run_eval.py --output eval/results/report-$$(date +%Y%m%d).md
+
+eval-persona:
+	@python3 eval/run_eval.py --persona $(PERSONA)
+
+eval-phase:
+	@python3 eval/run_eval.py --phase $(PHASE)
+
+eval-score:
+	@python3 eval/run_eval.py --mode=score
 
 ## --- Cleanup ---
 

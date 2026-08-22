@@ -399,7 +399,7 @@ oc get catalogsource -n openshift-marketplace
 # Should show your mirrored catalogs
 ```
 
-See [Disconnected Setup Guide](../getting-started/disconnected-setup.md).
+See [Disconnected Setup Guide](disconnected-setup.md).
 
 ---
 

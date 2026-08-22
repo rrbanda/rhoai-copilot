@@ -156,7 +156,7 @@ rhoai-copilot/
 | [Obtaining Credentials](docs/guides/obtaining-credentials.md) | How to get each required credential |
 | [Troubleshooting](docs/guides/troubleshooting.md) | Common errors and their resolutions |
 | [Environment Variables](docs/reference/environment-variables.md) | All environment variables reference |
-| [Disconnected Setup](docs/getting-started/disconnected-setup.md) | Air-gapped deployment guide |
+| [Disconnected Setup](docs/guides/disconnected-setup.md) | Air-gapped deployment guide |
 | [Architecture](docs/concepts/architecture.md) | System design and MCP topology |
 | [Custom Skills](docs/guides/custom-skills.md) | How to add new agent capabilities |
 

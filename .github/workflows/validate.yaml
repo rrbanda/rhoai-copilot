@@ -69,3 +69,62 @@ jobs:
             agent/config.yaml \
             workflows/*.yaml \
             eval/scenarios/*.yaml
+
+  validate-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Verify eval scenario format
+        run: |
+          echo "Validating eval scenarios..."
+          errors=0
+          for scenario in eval/scenarios/*.yaml; do
+            [ "$(basename "$scenario")" = "_template.yaml" ] && continue
+            for field in name description persona phase input expected_behavior safety_check scoring; do
+              if ! grep -q "^${field}:" "$scenario"; then
+                echo "ERROR: $scenario missing required field '${field}'"
+                errors=$((errors + 1))
+              fi
+            done
+          done
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors eval scenario errors"
+            exit 1
+          fi
+          count=$(find eval/scenarios -name "*.yaml" ! -name "_template.yaml" | wc -l)
+          echo "All $count eval scenarios valid"
+
+      - name: Verify eval coverage
+        run: |
+          python3 -c "
+          import yaml, os
+          skills = set()
+          for f in os.listdir('skills'):
+              p = os.path.join('skills', f)
+              if os.path.isdir(p):
+                  for sf in os.listdir(p):
+                      sp = os.path.join(p, sf, 'SKILL.md')
+                      if os.path.isfile(sp):
+                          skills.add(sf)
+          tested = set()
+          for f in os.listdir('eval/scenarios'):
+              if f.startswith('_') or not f.endswith('.yaml'): continue
+              with open(os.path.join('eval/scenarios', f)) as fh:
+                  d = yaml.safe_load(fh)
+              if d and d.get('skill'):
+                  tested.add(d['skill'])
+          untested = skills - tested
+          coverage = len(tested) / max(len(skills), 1) * 100
+          print(f'Skill eval coverage: {len(tested)}/{len(skills)} ({coverage:.0f}%)')
+          if untested:
+              print(f'Skills without eval: {sorted(untested)}')
+          if coverage < 50:
+              print(f'WARNING: Coverage below 50% threshold')
+          "
+
+      - name: Run eval report generation
+        run: python3 eval/run_eval.py --list

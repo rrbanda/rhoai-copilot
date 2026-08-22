@@ -1,0 +1,96 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rhoai-copilot-agent
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+spec:
+  podSelector:
+    matchLabels:
+      app: rhoai-copilot
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              network.openshift.io/policy-group: ingress
+      ports:
+        - protocol: TCP
+          port: 18789
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: rhoai-mcp
+      ports:
+        - protocol: TCP
+          port: 8000
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: rhoai-copilot
+          podSelector:
+            matchLabels:
+              app: openshift-mcp-server
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: rhoai-copilot
+          podSelector:
+            matchLabels:
+              app: mlflow-mcp
+      ports:
+        - protocol: TCP
+          port: 8080
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rhoai-mcp-server
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+spec:
+  podSelector:
+    matchLabels:
+      app: rhoai-mcp
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: rhoai-copilot
+      ports:
+        - protocol: TCP
+          port: 8000
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

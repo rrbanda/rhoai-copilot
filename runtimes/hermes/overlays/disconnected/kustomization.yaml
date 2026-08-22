@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../
+
+patches:
+  - target:
+      kind: Deployment
+      name: rhoai-copilot
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: registry.internal.example.com:5000/rhoai-copilot:latest
+  - target:
+      kind: Deployment
+      name: rhoai-mcp
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: registry.internal.example.com:5000/rhoai-mcp:latest

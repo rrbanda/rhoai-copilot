@@ -88,35 +88,25 @@ argocd account generate-token --account admin
 
 ### Option 2: Create a Dedicated Agent Account (Recommended)
 
-1. Edit the ArgoCD ConfigMap to add a new account:
+**Important**: On OpenShift GitOps, do NOT edit `argocd-cm` or `argocd-rbac-cm` ConfigMaps directly — the GitOps operator will revert your changes. Instead, patch the ArgoCD CR:
+
+1. Create a dedicated account and RBAC via the ArgoCD CR:
 
 ```bash
-oc edit configmap argocd-cm -n openshift-gitops
+oc patch argocd openshift-gitops -n openshift-gitops --type merge -p '{
+  "spec": {
+    "extraConfig": {
+      "accounts.hermes-agent": "apiKey,login",
+      "accounts.hermes-agent.enabled": "true"
+    },
+    "rbac": {
+      "policy": "p, role:copilot-agent, applications, get, */*, allow\np, role:copilot-agent, applications, sync, */*, allow\np, role:copilot-agent, clusters, get, *, allow\np, role:copilot-agent, projects, get, *, allow\np, role:copilot-agent, logs, get, */*, allow\ng, hermes-agent, role:copilot-agent"
+    }
+  }
+}'
 ```
 
-Add under `data`:
-```yaml
-accounts.hermes-agent: apiKey
-accounts.hermes-agent.enabled: "true"
-```
-
-2. Configure RBAC for the account:
-
-```bash
-oc edit configmap argocd-rbac-cm -n openshift-gitops
-```
-
-Add under `data.policy.csv`:
-```
-p, role:copilot-agent, applications, get, */*, allow
-p, role:copilot-agent, applications, sync, */*, allow
-p, role:copilot-agent, clusters, get, *, allow
-p, role:copilot-agent, projects, get, *, allow
-p, role:copilot-agent, logs, get, */*, allow
-g, hermes-agent, role:copilot-agent
-```
-
-3. Generate the token:
+2. Generate the token:
 
 ```bash
 argocd account generate-token --account hermes-agent

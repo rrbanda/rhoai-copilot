@@ -388,5 +388,5 @@ Use the dashboard to verify key capabilities:
 - [MCP Server Setup (detailed)](../guides/mcp-server-setup.md) — Full deployment manifests for each MCP server
 - [Troubleshooting](../guides/troubleshooting.md) — Common errors and their fixes
 - [Obtaining Credentials](../guides/obtaining-credentials.md) — How to get ArgoCD tokens, Gemini keys, etc.
-- [Disconnected Setup](disconnected-setup.md) — Air-gapped deployment adjustments
+- [Disconnected Setup](../guides/disconnected-setup.md) — Air-gapped deployment adjustments
 - [Adding Custom Skills](../guides/custom-skills.md) — Extend the agent's capabilities

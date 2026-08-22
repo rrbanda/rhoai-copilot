@@ -17,7 +17,7 @@ RHOAI Copilot is an AI agent that manages Red Hat OpenShift AI through Model Con
 │  │  │ + Rules    │  │    │  │  MCP    │  │    MCP       │  │   │
 │  │  ├────────────┤  │    │  └────┬────┘  └──────┬───────┘  │   │
 │  │  │  Skills    │  │    │       │               │          │   │
-│  │  │ (19 total) │  │───▶│  ┌────┴────┐  ┌──────┴───────┐  │   │
+│  │  │ (22 total) │  │───▶│  ┌────┴────┐  ┌──────┴───────┐  │   │
 │  │  ├────────────┤  │    │  │OpenShift│  │   MLflow     │  │   │
 │  │  │ Workflows  │  │    │  │  MCP    │  │    MCP       │  │   │
 │  │  └────────────┘  │    │  └─────────┘  └──────────────┘  │   │
