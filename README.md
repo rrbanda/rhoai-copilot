@@ -17,7 +17,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <a href="skills/"><img src="https://img.shields.io/badge/Skills-42-brightgreen.svg" alt="Skills"></a>
-  <a href="eval/"><img src="https://img.shields.io/badge/Eval-44_scenarios-orange.svg" alt="Eval"></a>
+  <a href="eval/"><img src="https://img.shields.io/badge/Eval-51_scenarios-orange.svg" alt="Eval"></a>
   <a href="mcp-servers/"><img src="https://img.shields.io/badge/MCP_Servers-5-blueviolet.svg" alt="MCP Servers"></a>
   <a href="docs/reference/compatibility-matrix.md"><img src="https://img.shields.io/badge/RHOAI-3.5-EE0000.svg" alt="RHOAI 3.5"></a>
   <a href="docs/reference/compatibility-matrix.md"><img src="https://img.shields.io/badge/OCP-4.17%2B-EE0000.svg" alt="OCP 4.17+"></a>
@@ -47,7 +47,10 @@ make deploy
 ```
 
 > [!TIP]
-> See the [Full Deployment Guide](docs/getting-started/deployment-guide.md) for the complete walkthrough with all 5 MCP servers, or [Disconnected Setup](docs/guides/disconnected-setup.md) for air-gapped clusters.
+> See the [Full Deployment Guide](docs/getting-started/deployment-guide.md) for the complete walkthrough with all 5 MCP servers, or [Disconnected Agent Setup](docs/guides/disconnected-setup.md) for deploying the agent on air-gapped clusters.
+
+> [!NOTE]
+> **Want to deploy RHOAI itself?** Once the agent is running, ask it: _"Deploy RHOAI on my disconnected cluster"_ or _"Deploy RHOAI 3.5 on my connected cluster."_ The agent has battle-tested deployment skills for both connected and air-gapped environments. See the [deployment templates](manifests/disconnected/) for the underlying manifests.
 
 ---
 
@@ -92,7 +95,7 @@ Agent:  I'll guide you through the full disconnected deployment.
 
 | Phase | Count | Skills |
 |-------|:-----:|--------|
-| **Platform Setup** | 5 | Connected + disconnected deploy, install validator, GitOps config generator |
+| **Platform Setup** | 5 | Connected + disconnected deploy (CLI/Console/GitOps), install validator, GitOps config generator |
 | **Plan** | 4 | Capacity forecaster, serving runtime advisor, training planner, model catalog |
 | **Administer** | 6 | DSC inspector, platform status, upgrades, Kueue quotas, hardware profiles, Feature Store |
 | **Develop** | 7 | Workbenches, pipelines, experiments, model registry, OGX/RAG, AutoRAG, GenAI Playground |
@@ -178,10 +181,11 @@ make eval-phase PHASE=monitor  # Filter by lifecycle phase
 
 | Metric | Coverage |
 |--------|:--------:|
-| Skills with eval | 41/41 (100%) |
+| Skills with eval | 42/42 (100%) |
 | Personas covered | 5/5 |
 | Phases covered | 9/9 |
 | Adversarial safety tests | 3 |
+| Deployment ground-truth tests | 2 |
 
 ---
 
@@ -192,7 +196,8 @@ make eval-phase PHASE=monitor  # Filter by lifecycle phase
 | | [Quick Start](docs/getting-started/quickstart.md) | Deploy in 5 minutes |
 | | [Deployment Guide](docs/getting-started/deployment-guide.md) | Full end-to-end deployment |
 | | [MCP Server Setup](docs/guides/mcp-server-setup.md) | Per-server deployment and config |
-| | [Disconnected Setup](docs/guides/disconnected-setup.md) | Air-gapped deployment guide |
+| | [Disconnected Agent Setup](docs/guides/disconnected-setup.md) | Deploy the agent on air-gapped clusters |
+| | [Disconnected RHOAI Templates](manifests/disconnected/) | Battle-tested manifests for deploying RHOAI disconnected |
 | | [Obtaining Credentials](docs/guides/obtaining-credentials.md) | Get each required credential |
 | | [Troubleshooting](docs/guides/troubleshooting.md) | Common errors and fixes |
 | | [Custom Skills](docs/guides/custom-skills.md) | Add new agent capabilities |

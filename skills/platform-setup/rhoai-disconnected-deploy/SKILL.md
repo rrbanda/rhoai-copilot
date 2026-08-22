@@ -89,11 +89,20 @@ Reference examples from verified deployments are in `examples/disconnected/rhoai
 
 ### Step 1: Install Mirror Registry
 
-**Where:** High side (disconnected host).
+**Where:** Download on low side (connected), transfer to high side, install on high side.
 
-Install the mirror registry for Red Hat OpenShift (streamlined Quay) on port 8443.
+First, download the mirror-registry installer on the connected host:
 
 ```bash
+# On the LOW SIDE (connected):
+curl -L -o mirror-registry-amd64.tar.gz \
+  https://developers.redhat.com/content-gateway/rest/mirror/pub/openshift-v4/clients/mirror-registry/latest/mirror-registry-amd64.tar.gz
+```
+
+Transfer it to the high side (along with oc and oc-mirror tools). Then install:
+
+```bash
+# On the HIGH SIDE (disconnected):
 tar -xzf mirror-registry-amd64.tar.gz -C ~/
 ./mirror-registry install \
   --quayHostname $(hostname -f) \
@@ -137,6 +146,29 @@ On the high side, also log into the mirror registry:
 ```bash
 podman login --authfile $XDG_RUNTIME_DIR/containers/auth.json \
   -u init -p "$MIRROR_REGISTRY_PASSWORD" "$MIRROR_REGISTRY"
+```
+
+---
+
+### Step 2b: Fetch Tools
+
+**Where:** Low side (connected host). `oc` and `oc-mirror` must match the target OpenShift release.
+
+```bash
+V=<OCP_RELEASE_VERSION>   # e.g. 4.20.30
+curl -L -o oc.tar.gz        "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/${V}/openshift-client-linux.tar.gz"
+curl -L -o oc-mirror.tar.gz "https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/${V}/oc-mirror.tar.gz"
+
+mkdir -p ~/bin && tar -xzf oc.tar.gz -C ~/bin oc kubectl && tar -xzf oc-mirror.tar.gz -C ~/bin
+chmod +x ~/bin/oc ~/bin/kubectl ~/bin/oc-mirror
+export PATH="$HOME/bin:$PATH"
+```
+
+Copy the tools to the staging area so they cross the gap with the mirror archives:
+
+```bash
+mkdir -p /mnt/mirror/tools
+cp ~/bin/oc ~/bin/kubectl ~/bin/oc-mirror /mnt/mirror/tools/
 ```
 
 ---
