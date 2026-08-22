@@ -95,7 +95,7 @@ make build
 make deploy
 ```
 
-See [docs/getting-started/quickstart.md](docs/getting-started/quickstart.md) for the full guide.
+See [Quick Start](docs/getting-started/quickstart.md) for the 5-minute version, or the [Full Deployment Guide](docs/getting-started/deployment-guide.md) for the complete step-by-step walkthrough.
 
 ## Repository Structure
 
@@ -142,6 +142,20 @@ rhoai-copilot/
 - **MLOps Engineer** — Manage model pipelines, serving, and promotion
 - **Data Scientist** — Experiment, train, and debug ML workflows
 - **SRE/Operations** — Monitor platform health and respond to incidents
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Quick Start](docs/getting-started/quickstart.md) | 5-minute deployment |
+| [Full Deployment Guide](docs/getting-started/deployment-guide.md) | Complete end-to-end deployment with all 5 MCP servers |
+| [MCP Server Setup](docs/guides/mcp-server-setup.md) | Detailed per-server deployment (ArgoCD, RHOAI, OpenShift, MLflow, GitHub) |
+| [Obtaining Credentials](docs/guides/obtaining-credentials.md) | How to get each required credential |
+| [Troubleshooting](docs/guides/troubleshooting.md) | Common errors and their resolutions |
+| [Environment Variables](docs/reference/environment-variables.md) | All environment variables reference |
+| [Disconnected Setup](docs/getting-started/disconnected-setup.md) | Air-gapped deployment guide |
+| [Architecture](docs/concepts/architecture.md) | System design and MCP topology |
+| [Custom Skills](docs/guides/custom-skills.md) | How to add new agent capabilities |
 
 ## Contributing
 
