@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rhoai-copilot
+  labels:
+    app: rhoai-copilot
+    app.kubernetes.io/name: rhoai-copilot
+    app.kubernetes.io/part-of: rhoai-copilot
+    app.kubernetes.io/runtime: hermes
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: rhoai-copilot
+  template:
+    metadata:
+      labels:
+        app: rhoai-copilot
+        app.kubernetes.io/runtime: hermes
+    spec:
+      serviceAccountName: rhoai-copilot
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: rhoai-copilot:latest
+          imagePullPolicy: Always
+          command: ["/bin/bash", "/mnt/entrypoint/entrypoint.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false
+          env:
+            - name: HOME
+              value: /tmp/work
+            - name: HERMES_HOME
+              value: /tmp/work/.hermes
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rhoai-copilot-secrets
+                  key: gemini-api-key
+            - name: ARGOCD_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: rhoai-copilot-secrets
+                  key: argocd-base-url
+                  optional: true
+            - name: ARGOCD_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rhoai-copilot-secrets
+                  key: argocd-api-token
+            - name: DASHBOARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rhoai-copilot-secrets
+                  key: dashboard-password
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: rhoai-copilot-secrets
+                  key: github-token
+                  optional: true
+            - name: PATH
+              value: "/sandbox/.venv/bin:/usr/local/bin:/tmp/work/.local/bin:/usr/bin:/bin"
+            - name: VIRTUAL_ENV
+              value: "/sandbox/.venv"
+          ports:
+            - containerPort: 18789
+              name: dashboard
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 18789
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 18789
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+              ephemeral-storage: "2Gi"
+          volumeMounts:
+            - name: entrypoint
+              mountPath: /mnt/entrypoint
+            - name: soul
+              mountPath: /mnt/soul
+            - name: config
+              mountPath: /mnt/config
+            - name: agent-data
+              mountPath: /persistent
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: entrypoint
+          configMap:
+            name: rhoai-copilot-entrypoint
+            defaultMode: 0755
+        - name: soul
+          configMap:
+            name: rhoai-copilot-soul
+        - name: config
+          configMap:
+            name: rhoai-copilot-config
+        - name: agent-data
+          persistentVolumeClaim:
+            claimName: rhoai-copilot-data
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi

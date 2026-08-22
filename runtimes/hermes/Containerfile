@@ -1,0 +1,33 @@
+# RHOAI Copilot — Hermes Runtime
+# Builds the agent container with all MCP server binaries pre-installed.
+FROM python:3.13-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      bash curl git ca-certificates xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /sandbox && python3 -m venv /sandbox/.venv
+
+RUN /sandbox/.venv/bin/pip install --no-cache-dir \
+      "hermes-agent>=0.19.0" \
+      aiohttp \
+      "mcp>=1.8.1,<2.0" \
+      pyyaml \
+      fastapi \
+      "uvicorn[standard]" \
+      websockets
+
+ARG NODE_VERSION=22.16.0
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+      | tar -xJf - -C /usr/local --strip-components=1 \
+    && node --version && npm --version
+
+RUN npm install -g argocd-mcp@latest
+RUN npm install -g @modelcontextprotocol/server-github@latest
+
+ENV HERMES_HOME=/sandbox/.hermes \
+    HOME=/sandbox \
+    PATH="/sandbox/.venv/bin:/usr/local/bin:$PATH" \
+    BOOTSTRAP_DEPS=0
+
+EXPOSE 18789

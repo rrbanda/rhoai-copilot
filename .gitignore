@@ -1,0 +1,35 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets (never commit)
+*.env
+.env.*
+credentials.json
+*-token
+*.key
+*.pem
+
+# Build artifacts
+_output/
+build/
+*.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Docs build
+site/

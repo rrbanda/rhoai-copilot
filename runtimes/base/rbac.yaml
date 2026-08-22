@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rhoai-copilot
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: rhoai-copilot-cluster-reader
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-reader
+subjects:
+  - kind: ServiceAccount
+    name: rhoai-copilot
+    namespace: rhoai-copilot

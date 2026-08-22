@@ -1,0 +1,109 @@
+# RHOAI Copilot - Agent Configuration
+# This file defines MCP server connections and tool whitelists.
+# Environment variables (${VAR}) are resolved at runtime by the agent harness.
+
+mcp_servers:
+  argocd:
+    command: "argocd-mcp"
+    args: ["stdio"]
+    env:
+      ARGOCD_BASE_URL: "${ARGOCD_BASE_URL}"
+      ARGOCD_API_TOKEN: "${ARGOCD_API_TOKEN}"
+      ARGOCD_INSECURE: "true"
+    timeout: 60
+    connect_timeout: 30
+    tools:
+      include:
+        # Read operations
+        - list_applications
+        - get_application
+        - get_application_resource_tree
+        - get_application_managed_resources
+        - get_application_workload_logs
+        - get_resource_events
+        - get_resource_actions
+        - list_clusters
+        - get_appproject
+        # Write operations (Tier 2 - controlled)
+        - sync_application
+
+  rhoai:
+    url: "${RHOAI_MCP_URL}"
+    timeout: 60
+    connect_timeout: 30
+    tools:
+      include:
+        # Project and cluster overview
+        - list_data_science_projects
+        - get_project_details
+        - get_project_status
+        - get_cluster_resources
+        - cluster_summary
+        - project_summary
+        # Workbench operations
+        - list_workbenches
+        - get_workbench
+        - get_workbench_url
+        - list_notebook_images
+        # Model serving
+        - list_inference_services
+        - get_inference_service
+        - list_serving_runtimes
+        - get_model_endpoint
+        - prepare_model_deployment
+        - check_deployment_prerequisites
+        - estimate_serving_resources
+        # Model Registry
+        - list_registered_models
+        - get_registered_model
+        - list_model_versions
+        - get_model_artifacts
+        # Training
+        - list_training_jobs
+        - get_training_progress
+        - list_training_runtimes
+        - estimate_resources
+        # Data and storage
+        - list_data_connections
+        - list_storage
+        - get_pipeline_server
+        # Diagnostics
+        - explore_cluster
+        - diagnose_resource
+        - multi_resource_status
+        - resource_status
+        - list_resource_names
+        # Tier 2: Scoped write operations
+        - create_workbench
+        - start_workbench
+        - stop_workbench
+        - create_s3_data_connection
+        - deploy_model
+
+  openshift:
+    url: "${OPENSHIFT_MCP_URL}"
+    timeout: 60
+    connect_timeout: 30
+
+  mlflow:
+    url: "${MLFLOW_MCP_URL}"
+    timeout: 60
+    connect_timeout: 30
+
+  github:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+    timeout: 30
+    connect_timeout: 15
+    tools:
+      include:
+        - create_pull_request
+        - get_file_contents
+        - push_files
+        - create_branch
+        - list_branches
+        - search_code
+        - create_or_update_file
+        - list_commits

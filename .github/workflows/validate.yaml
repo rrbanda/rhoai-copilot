@@ -1,0 +1,60 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check skill format
+        run: |
+          echo "Validating skill files..."
+          errors=0
+          for skill in $(find skills -name "SKILL.md" -not -path "skills/_template/*"); do
+            # Check required sections
+            for section in "Description" "Trigger Conditions" "Required MCP Tools" "Procedure" "Output Format" "Safety Constraints"; do
+              if ! grep -q "## $section" "$skill"; then
+                echo "ERROR: $skill missing '## $section' section"
+                errors=$((errors + 1))
+              fi
+            done
+          done
+          if [ $errors -gt 0 ]; then
+            echo "Found $errors validation errors"
+            exit 1
+          fi
+          echo "All skills valid"
+
+  validate-kustomize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Validate base kustomization
+        run: kustomize build runtimes/base/ > /dev/null
+
+  validate-yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint YAML files
+        run: |
+          yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" \
+            agent/config.yaml \
+            workflows/*.yaml \
+            eval/scenarios/*.yaml

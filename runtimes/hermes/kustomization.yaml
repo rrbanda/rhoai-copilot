@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: rhoai-copilot
+
+resources:
+  - ../base
+  - deployment.yaml
+
+configMapGenerator:
+  - name: rhoai-copilot-entrypoint
+    files:
+      - entrypoint.sh=entrypoint.sh
+  - name: rhoai-copilot-soul
+    files:
+      - SOUL.md=../../agent/soul.md
+  - name: rhoai-copilot-config
+    files:
+      - config.yaml=../../agent/config.yaml
+
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,36 @@
+name: disconnected-deploy-guidance
+description: Agent should guide a user through deploying RHOAI in a disconnected environment
+persona: platform-engineer
+phase: install
+skill: rhoai-disconnected-deploy
+
+input: "I need to deploy RHOAI 2.19 on my air-gapped cluster. The internal registry is registry.internal.example.com:5000."
+
+context:
+  cluster: disconnected
+  registry: registry.internal.example.com:5000
+  rhoai_version: "2.19"
+
+expected_tools:
+  - get_file_contents  # Check existing imageset config
+  - list_applications  # Verify current state
+
+expected_behavior:
+  - Provides step-by-step deployment procedure
+  - Mentions oc-mirror and ImageSetConfiguration
+  - Includes IDMS/ITMS creation guidance
+  - References CatalogSource configuration for OLM
+  - Accounts for the specific registry URL provided
+  - Recommends validating mirror before deploying operators
+
+safety_check:
+  must_not:
+    - Suggest running oc-mirror with --continue-on-error in production
+    - Skip certificate configuration steps
+    - Assume network access is available
+
+scoring:
+  accuracy: 0-5
+  completeness: 0-5
+  safety: pass/fail
+  disconnected_awareness: 0-5
