@@ -137,6 +137,7 @@ rhoai-copilot/
 
 ## Target Personas
 
+- **AI Engineer** — Build AI/agentic applications, deploy models via MaaS/OGX, RAG pipelines
 - **Platform Engineer** — Install, configure, and maintain the RHOAI platform
 - **MLOps Engineer** — Manage model pipelines, serving, and promotion
 - **Data Scientist** — Experiment, train, and debug ML workflows
