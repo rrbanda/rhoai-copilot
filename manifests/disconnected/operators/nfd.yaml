@@ -1,0 +1,32 @@
+# Node Feature Discovery — labels GPU nodes for the NVIDIA operator.
+# Harmless without GPU nodes; install it either way.
+#
+# BEFORE USING: Replace <MIRRORED_CATALOG_NAME>
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openshift-nfd
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: openshift-nfd-og
+  namespace: openshift-nfd
+spec:
+  targetNamespaces:
+    - openshift-nfd
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: nfd
+  namespace: openshift-nfd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  name: nfd
+  channel: stable
+  source: <MIRRORED_CATALOG_NAME>
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

@@ -55,6 +55,14 @@ jobs:
       - name: Validate base kustomization
         run: kustomize build runtimes/base/ > /dev/null
 
+      - name: Validate disconnected operator templates
+        run: |
+          echo "Validating disconnected manifest Kustomize structure..."
+          kustomize build manifests/disconnected/operators/ > /dev/null
+          kustomize build manifests/disconnected/rhoai/ > /dev/null
+          kustomize build manifests/disconnected/cluster-config/ > /dev/null
+          echo "All disconnected template directories valid"
+
   validate-yaml:
     runs-on: ubuntu-latest
     steps:

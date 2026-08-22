@@ -1,0 +1,20 @@
+# CatalogSource alias: "redhat-operators"
+#
+# WHY THIS EXISTS:
+# The OpenShift ingress operator auto-creates a Subscription for
+# servicemeshoperator3 against the name "redhat-operators". It reconciles
+# this Subscription continuously — you cannot delete or repoint it.
+# Without this alias CatalogSource, OSSM 3 never installs and the
+# Data Science Gateway never programs.
+#
+# BEFORE USING: Replace <MIRROR_REGISTRY>, <MIRROR_NAMESPACE>, and <OCP_VERSION>
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: redhat-operators
+  namespace: openshift-marketplace
+spec:
+  sourceType: grpc
+  image: <MIRROR_REGISTRY>/<MIRROR_NAMESPACE>/redhat/redhat-operator-index:v<OCP_VERSION>
+  displayName: Red Hat Operators (mirrored)
+  publisher: Red Hat

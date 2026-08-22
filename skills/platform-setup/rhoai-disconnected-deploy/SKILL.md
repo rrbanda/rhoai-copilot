@@ -59,6 +59,32 @@ Tell the user these numbers **before** they begin. Running out of disk during th
 
 ---
 
+## Template Files (Use Instead of Generating YAML)
+
+This repo includes battle-tested manifest templates that the agent should point users to instead of generating YAML from scratch. This saves tokens and ensures accuracy.
+
+| Template | Path | Purpose |
+|----------|------|---------|
+| ImageSetConfiguration | `manifests/disconnected/mirror/imageset-config-rhoai.yaml` | Mirror config with placeholder digests and additionalImages instructions |
+| Disable default catalogs | `manifests/disconnected/cluster-config/disable-default-catalogs.yaml` | OperatorHub patch |
+| Registry CA trust | `manifests/disconnected/cluster-config/registry-ca-trust.yaml` | Layer 1 CA trust (node/CRI-O) |
+| CatalogSource alias | `manifests/disconnected/cluster-config/catalog-source-alias.yaml` | `redhat-operators` alias for ingress operator |
+| Pull secret patch | `manifests/disconnected/cluster-config/pull-secret-patch.sh` | Script to add mirror creds |
+| cert-manager operator | `manifests/disconnected/operators/cert-manager.yaml` | NS + OG + Subscription |
+| Service Mesh 3 | `manifests/disconnected/operators/servicemesh3.yaml` | OCP 4.19-4.21 only |
+| NFD operator | `manifests/disconnected/operators/nfd.yaml` | NS + OG + Subscription |
+| GPU operator | `manifests/disconnected/operators/gpu-operator.yaml` | NS + OG + Subscription (certified catalog) |
+| RHOAI operator | `manifests/disconnected/operators/rhoai.yaml` | NS + OG (AllNamespaces) + Subscription |
+| DSCInitialization | `manifests/disconnected/rhoai/dsci.yaml` | Layer 2 CA trust (pod-level, customCABundle) |
+| DataScienceCluster v2 | `manifests/disconnected/rhoai/dsc-v2.yaml` | All 14 components explicit |
+| ArgoCD Applications | `manifests/disconnected/argocd/` | GitOps wrappers with sync-waves |
+
+**For each step below, tell the user: "Copy `<template file>` and replace `<PLACEHOLDER>` with your value" instead of generating the YAML inline.**
+
+Reference examples from verified deployments are in `examples/disconnected/rhoai-3.4.2-ocp-4.20.30/` for comparison.
+
+---
+
 ## Procedure
 
 ### Step 1: Install Mirror Registry

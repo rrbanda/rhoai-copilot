@@ -1,0 +1,72 @@
+# ImageSetConfiguration for mirroring RHOAI and its dependencies.
+#
+# BEFORE USING:
+# 1. Pin catalog digests by running:
+#    skopeo inspect --raw docker://registry.redhat.io/redhat/redhat-operator-index:v<OCP_VERSION> \
+#      | jq -r '.manifests[] | select(.platform.architecture=="amd64") | .digest'
+# 2. Fetch workbench images from:
+#    https://github.com/red-hat-data-services/rhoai-disconnected-install-helper
+#    Use the rhoai-<VERSION>.md file and add all entries to additionalImages below.
+#
+# CRITICAL:
+# - defaultChannel is REQUIRED on every filtered package (without it: "invalid default channel")
+# - Digest-pin catalogs BEFORE mirroring (editing after causes 403 on push)
+# - Run with: oc-mirror --v2 --image-timeout 60m (InstructLab images are 9 GB)
+apiVersion: mirror.openshift.io/v2alpha1
+kind: ImageSetConfiguration
+mirror:
+  operators:
+    # Red Hat operator catalog — RHOAI + dependency operators
+    - catalog: registry.redhat.io/redhat/redhat-operator-index@<CATALOG_DIGEST>
+      packages:
+        - name: rhods-operator
+          defaultChannel: <RHOAI_CHANNEL>
+          channels:
+            - name: <RHOAI_CHANNEL>
+              minVersion: "<RHOAI_VERSION>"
+              maxVersion: "<RHOAI_VERSION>"
+        - name: openshift-cert-manager-operator
+          defaultChannel: stable-v1
+          channels:
+            - name: stable-v1
+        - name: servicemeshoperator3
+          defaultChannel: stable
+          channels:
+            - name: stable
+        - name: nfd
+          defaultChannel: stable
+          channels:
+            - name: stable
+    # Certified operator catalog — GPU operator
+    - catalog: registry.redhat.io/redhat/certified-operator-index@<CERTIFIED_CATALOG_DIGEST>
+      packages:
+        - name: gpu-operator-certified
+          defaultChannel: stable
+          channels:
+            - name: stable
+  additionalImages:
+    # =========================================================================
+    # WORKBENCH IMAGES — oc-mirror CANNOT discover these automatically.
+    # They are referenced through runtime ImageStreams, not relatedImages.
+    # Without them, RHOAI installs but workbench creation fails with
+    # ImagePullBackOff.
+    #
+    # Get the complete list for your RHOAI version from:
+    #   https://github.com/red-hat-data-services/rhoai-disconnected-install-helper
+    #
+    # Example command to extract:
+    #   curl -sfL https://raw.githubusercontent.com/red-hat-data-services/\
+    #     rhoai-disconnected-install-helper/main/rhoai-<VERSION>.md \
+    #     | awk '/^# Additional images/{a=1;next}/^# (Unsupported|ImageSetConfiguration)/{a=0}a' \
+    #     | grep -oE '(quay\.io|registry\.redhat\.io)[^ ]+@sha256:[a-f0-9]+' | sort -u
+    #
+    # Paste the output here. Expect ~63 images for RHOAI 3.4.x.
+    # =========================================================================
+    # - name: quay.io/modh/odh-generic-data-science-notebook@sha256:...
+    # - name: quay.io/modh/cuda-notebooks@sha256:...
+    # - name: registry.redhat.io/rhoai/odh-workbench-jupyter-minimal-cpu-py311-rhel9@sha256:...
+    # ... (paste full list from helper repo)
+    #
+    # OCP 4.22+ ONLY — Istio images for Helm-based gateway (not in any operator bundle):
+    # - name: registry.redhat.io/openshift-service-mesh/istio-pilot-rhel9@sha256:...
+    # - name: registry.redhat.io/openshift-service-mesh/istio-proxyv2-rhel9@sha256:...

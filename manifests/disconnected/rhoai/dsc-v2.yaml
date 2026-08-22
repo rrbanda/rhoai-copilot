@@ -1,0 +1,64 @@
+# DataScienceCluster — RHOAI 3.x, v2 API.
+#
+# CRITICAL — USE v2, NOT v1:
+# v1 is accepted and converted, so it LOOKS like it works. But v1 cannot
+# express `trainer`, `sparkoperator`, or `mlflowoperator`. Whatever v1
+# cannot say, the operator defaults. `trainer` defaults to Managed and
+# requires the JobSet operator — which is NOT in the mirror set. The DSC
+# never reaches Ready and nothing in your manifest explains why.
+#
+# CRITICAL — SET EVERY COMPONENT EXPLICITLY:
+# An omitted component takes the operator default, which can change between
+# z-streams. Use `Removed`, not omission.
+#
+# FIELD NAME CHANGES from v1:
+#   - datasciencepipelines → aipipelines
+#   - codeflare: dropped (does not exist in v2)
+#   - modelmeshserving: dropped (does not exist in v2)
+#
+# KServe NOTE: v2 accepts ONLY managementState, modelsAsService, nim,
+# rawDeploymentServiceConfig, and wva. The `serving:` block and
+# `defaultDeploymentMode` from v1/2.x were REMOVED in 3.x.
+#
+# CUSTOMIZE: Set components you need to Managed, everything else to Removed.
+apiVersion: datasciencecluster.opendatahub.io/v2
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  components:
+    dashboard:
+      managementState: Managed
+    workbenches:
+      managementState: Managed
+    kserve:
+      managementState: Managed
+      rawDeploymentServiceConfig: Headless
+    aipipelines:
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+      registriesNamespace: rhoai-model-registries
+    # Set ALL unused components to Removed explicitly.
+    # Omitting them lets the operator default, which may require operators
+    # that are not in your mirror set.
+    trainer:
+      managementState: Removed
+    trainingoperator:
+      managementState: Removed
+    kueue:
+      managementState: Removed
+    ray:
+      managementState: Removed
+    sparkoperator:
+      managementState: Removed
+    trustyai:
+      managementState: Removed
+    mlflowoperator:
+      managementState: Removed
+    feastoperator:
+      managementState: Removed
+    llamastackoperator:
+      managementState: Removed

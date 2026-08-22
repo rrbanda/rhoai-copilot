@@ -1,0 +1,35 @@
+# ArgoCD Application for RHOAI configuration (DSCI + DSC).
+# Sync-wave 2: applied AFTER all operators are healthy.
+#
+# The DSCInitialization must be applied before the DataScienceCluster.
+# ArgoCD applies resources in sync-wave order within the Application,
+# and the resources have sync-wave annotations (dsci=3, dsc=4).
+#
+# BEFORE USING:
+# 1. Replace <YOUR_GITOPS_REPO_URL> with your deployment repo URL
+# 2. Replace <YOUR_BRANCH> with your target branch
+# 3. Ensure dsci.yaml has the mirror CA PEM filled in
+# 4. Ensure dsc-v2.yaml has your desired components set
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rhoai-config
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: <YOUR_GITOPS_REPO_URL>
+    targetRevision: <YOUR_BRANCH>
+    path: manifests/disconnected/rhoai
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true

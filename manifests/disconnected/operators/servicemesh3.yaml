@@ -1,0 +1,24 @@
+# Service Mesh 3 (Sail Operator) — required for the Data Science Gateway.
+#
+# OCP VERSION NOTE:
+# - OCP 4.19-4.21: Install this operator via OLM (this file)
+# - OCP 4.22+: DO NOT install this. The ingress operator installs Istio via Helm.
+#   Instead, add these two images to your ImageSetConfiguration additionalImages:
+#     - registry.redhat.io/openshift-service-mesh/istio-pilot-rhel9@sha256:...
+#     - registry.redhat.io/openshift-service-mesh/istio-proxyv2-rhel9@sha256:...
+#
+# BEFORE USING: Replace <MIRRORED_CATALOG_NAME>
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: servicemeshoperator3
+  namespace: openshift-operators
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  name: servicemeshoperator3
+  channel: stable
+  source: <MIRRORED_CATALOG_NAME>
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

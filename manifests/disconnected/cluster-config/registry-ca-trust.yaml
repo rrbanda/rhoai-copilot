@@ -1,0 +1,28 @@
+# Trust the mirror registry CA cluster-wide (Layer 1: node/CRI-O trust).
+# This allows the cluster's image pull mechanism to trust the mirror.
+#
+# NOTE: This is only HALF the CA trust story. Workbenches and pipeline pods
+# mount odh-trusted-ca-bundle (from DSCInitialization), NOT the node trust
+# store. You ALSO need the CA in rhoai/dsci.yaml customCABundle (Layer 2).
+#
+# BEFORE USING:
+# 1. Replace <MIRROR_REGISTRY_FQDN> with your registry hostname (no port)
+# 2. The ..8443 in the key is NOT a typo — a literal .. encodes the port separator
+# 3. Create from your CA file:
+#    oc create configmap registry-cas -n openshift-config \
+#      --from-file="<MIRROR_REGISTRY_FQDN>..8443=rootCA.pem" \
+#      --dry-run=client -o yaml | oc apply -f -
+#
+# Then patch the cluster image config:
+#    oc patch image.config.openshift.io/cluster --type=merge \
+#      -p '{"spec":{"additionalTrustedCA":{"name":"registry-cas"}}}'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: registry-cas
+  namespace: openshift-config
+data:
+  <MIRROR_REGISTRY_FQDN>..8443: |
+    -----BEGIN CERTIFICATE-----
+    <MIRROR_CA_PEM>
+    -----END CERTIFICATE-----

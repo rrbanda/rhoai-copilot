@@ -1,0 +1,33 @@
+# NVIDIA GPU Operator — GPU drivers and device plugin.
+# Optional: only needed if you have or plan to add GPU nodes.
+# Uses the CERTIFIED operator catalog (not the Red Hat catalog).
+#
+# BEFORE USING: Replace <CERTIFIED_CATALOG_NAME>
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nvidia-gpu-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: nvidia-gpu-operator-og
+  namespace: nvidia-gpu-operator
+spec:
+  targetNamespaces:
+    - nvidia-gpu-operator
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: gpu-operator-certified
+  namespace: nvidia-gpu-operator
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  name: gpu-operator-certified
+  channel: stable
+  source: <CERTIFIED_CATALOG_NAME>
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic

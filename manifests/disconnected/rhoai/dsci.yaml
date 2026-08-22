@@ -1,0 +1,30 @@
+# DSCInitialization — cluster-level RHOAI bootstrap.
+# MUST be applied BEFORE the DataScienceCluster.
+#
+# WHY customCABundle MATTERS IN DISCONNECTED:
+# RHOAI injects an `odh-trusted-ca-bundle` ConfigMap into every namespace it
+# manages. Workbenches, pipeline pods, and model servers mount this ConfigMap
+# for TLS — they do NOT use the node trust store configured via
+# image.config.openshift.io. Without the mirror registry's CA here, pods get
+# x509 errors even though image pulls succeed.
+#
+# This is Layer 2 of the dual-layer CA trust:
+#   Layer 1: image.config.openshift.io additionalTrustedCA → node/CRI-O image pulls
+#   Layer 2: DSCInitialization customCABundle → pod-level TLS (workbenches, pipelines)
+#
+# BEFORE USING: Replace <MIRROR_CA_PEM> with your mirror registry CA certificate
+apiVersion: dscinitialization.opendatahub.io/v1
+kind: DSCInitialization
+metadata:
+  name: default-dsci
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  applicationsNamespace: redhat-ods-applications
+  monitoring:
+    managementState: Managed
+    namespace: redhat-ods-monitoring
+  trustedCABundle:
+    managementState: Managed
+    customCABundle: |
+      <MIRROR_CA_PEM>
