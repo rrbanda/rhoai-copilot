@@ -154,6 +154,52 @@ spec:
               mountPath: /mnt/skill-incident-runbook
             - name: skill-maas-debug
               mountPath: /mnt/skill-maas-debug
+            # New skills — Plan
+            - name: skill-model-catalog-advisor
+              mountPath: /mnt/skill-model-catalog-advisor
+            # New skills — Administer
+            - name: skill-kueue-quota-manager
+              mountPath: /mnt/skill-kueue-quota-manager
+            - name: skill-hardware-profile-manager
+              mountPath: /mnt/skill-hardware-profile-manager
+            - name: skill-feature-store-setup
+              mountPath: /mnt/skill-feature-store-setup
+            # New skills — Develop
+            - name: skill-model-registry-manager
+              mountPath: /mnt/skill-model-registry-manager
+            - name: skill-workbench-provisioner
+              mountPath: /mnt/skill-workbench-provisioner
+            - name: skill-ogx-rag-builder
+              mountPath: /mnt/skill-ogx-rag-builder
+            - name: skill-autorag-optimizer
+              mountPath: /mnt/skill-autorag-optimizer
+            - name: skill-genai-playground-guide
+              mountPath: /mnt/skill-genai-playground-guide
+            # New skills — Train
+            - name: skill-distributed-training-setup
+              mountPath: /mnt/skill-distributed-training-setup
+            - name: skill-automl-trainer
+              mountPath: /mnt/skill-automl-trainer
+            # New skills — Evaluate
+            - name: skill-lm-eval-runner
+              mountPath: /mnt/skill-lm-eval-runner
+            # New skills — Deploy
+            - name: skill-llmd-deployment-manager
+              mountPath: /mnt/skill-llmd-deployment-manager
+            - name: skill-kserve-model-deployer
+              mountPath: /mnt/skill-kserve-model-deployer
+            - name: skill-maas-subscription-manager
+              mountPath: /mnt/skill-maas-subscription-manager
+            - name: skill-maas-external-models
+              mountPath: /mnt/skill-maas-external-models
+            # New skills — Monitor
+            - name: skill-model-drift-monitor
+              mountPath: /mnt/skill-model-drift-monitor
+            # New skills — Maintain Safety
+            - name: skill-nemo-guardrails-configurator
+              mountPath: /mnt/skill-nemo-guardrails-configurator
+            - name: skill-garak-security-scanner
+              mountPath: /mnt/skill-garak-security-scanner
       volumes:
         - name: entrypoint
           configMap:
@@ -238,3 +284,68 @@ spec:
         - name: skill-maas-debug
           configMap:
             name: skill-maas-debug
+        # New skill volumes — Plan
+        - name: skill-model-catalog-advisor
+          configMap:
+            name: skill-model-catalog-advisor
+        # New skill volumes — Administer
+        - name: skill-kueue-quota-manager
+          configMap:
+            name: skill-kueue-quota-manager
+        - name: skill-hardware-profile-manager
+          configMap:
+            name: skill-hardware-profile-manager
+        - name: skill-feature-store-setup
+          configMap:
+            name: skill-feature-store-setup
+        # New skill volumes — Develop
+        - name: skill-model-registry-manager
+          configMap:
+            name: skill-model-registry-manager
+        - name: skill-workbench-provisioner
+          configMap:
+            name: skill-workbench-provisioner
+        - name: skill-ogx-rag-builder
+          configMap:
+            name: skill-ogx-rag-builder
+        - name: skill-autorag-optimizer
+          configMap:
+            name: skill-autorag-optimizer
+        - name: skill-genai-playground-guide
+          configMap:
+            name: skill-genai-playground-guide
+        # New skill volumes — Train
+        - name: skill-distributed-training-setup
+          configMap:
+            name: skill-distributed-training-setup
+        - name: skill-automl-trainer
+          configMap:
+            name: skill-automl-trainer
+        # New skill volumes — Evaluate
+        - name: skill-lm-eval-runner
+          configMap:
+            name: skill-lm-eval-runner
+        # New skill volumes — Deploy
+        - name: skill-llmd-deployment-manager
+          configMap:
+            name: skill-llmd-deployment-manager
+        - name: skill-kserve-model-deployer
+          configMap:
+            name: skill-kserve-model-deployer
+        - name: skill-maas-subscription-manager
+          configMap:
+            name: skill-maas-subscription-manager
+        - name: skill-maas-external-models
+          configMap:
+            name: skill-maas-external-models
+        # New skill volumes — Monitor
+        - name: skill-model-drift-monitor
+          configMap:
+            name: skill-model-drift-monitor
+        # New skill volumes — Maintain Safety
+        - name: skill-nemo-guardrails-configurator
+          configMap:
+            name: skill-nemo-guardrails-configurator
+        - name: skill-garak-security-scanner
+          configMap:
+            name: skill-garak-security-scanner

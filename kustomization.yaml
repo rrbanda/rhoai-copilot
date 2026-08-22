@@ -79,6 +79,60 @@ configMapGenerator:
   - name: skill-maas-deploy-model
     files:
       - SKILL.md=skills/deploy/maas-deploy-model/SKILL.md
+  # Plan phase skills (new)
+  - name: skill-model-catalog-advisor
+    files:
+      - SKILL.md=skills/plan/model-catalog-advisor/SKILL.md
+  # Administer phase skills (new)
+  - name: skill-kueue-quota-manager
+    files:
+      - SKILL.md=skills/administer/kueue-quota-manager/SKILL.md
+  - name: skill-hardware-profile-manager
+    files:
+      - SKILL.md=skills/administer/hardware-profile-manager/SKILL.md
+  - name: skill-feature-store-setup
+    files:
+      - SKILL.md=skills/administer/feature-store-setup/SKILL.md
+  # Develop phase skills (new)
+  - name: skill-model-registry-manager
+    files:
+      - SKILL.md=skills/develop/model-registry-manager/SKILL.md
+  - name: skill-workbench-provisioner
+    files:
+      - SKILL.md=skills/develop/workbench-provisioner/SKILL.md
+  - name: skill-ogx-rag-builder
+    files:
+      - SKILL.md=skills/develop/ogx-rag-builder/SKILL.md
+  - name: skill-autorag-optimizer
+    files:
+      - SKILL.md=skills/develop/autorag-optimizer/SKILL.md
+  - name: skill-genai-playground-guide
+    files:
+      - SKILL.md=skills/develop/genai-playground-guide/SKILL.md
+  # Train phase skills (new)
+  - name: skill-distributed-training-setup
+    files:
+      - SKILL.md=skills/train/distributed-training-setup/SKILL.md
+  - name: skill-automl-trainer
+    files:
+      - SKILL.md=skills/train/automl-trainer/SKILL.md
+  # Evaluate phase skills (new)
+  - name: skill-lm-eval-runner
+    files:
+      - SKILL.md=skills/evaluate/lm-eval-runner/SKILL.md
+  # Deploy phase skills (new)
+  - name: skill-llmd-deployment-manager
+    files:
+      - SKILL.md=skills/deploy/llmd-deployment-manager/SKILL.md
+  - name: skill-kserve-model-deployer
+    files:
+      - SKILL.md=skills/deploy/kserve-model-deployer/SKILL.md
+  - name: skill-maas-subscription-manager
+    files:
+      - SKILL.md=skills/deploy/maas-subscription-manager/SKILL.md
+  - name: skill-maas-external-models
+    files:
+      - SKILL.md=skills/deploy/maas-external-models/SKILL.md
   # Monitor phase skills
   - name: skill-argocd-health-check
     files:
@@ -95,6 +149,16 @@ configMapGenerator:
   - name: skill-maas-debug
     files:
       - SKILL.md=skills/monitor/maas-debug/SKILL.md
+  - name: skill-model-drift-monitor
+    files:
+      - SKILL.md=skills/monitor/model-drift-monitor/SKILL.md
+  # Maintain Safety phase skills (new)
+  - name: skill-nemo-guardrails-configurator
+    files:
+      - SKILL.md=skills/maintain-safety/nemo-guardrails-configurator/SKILL.md
+  - name: skill-garak-security-scanner
+    files:
+      - SKILL.md=skills/maintain-safety/garak-security-scanner/SKILL.md
 
 generatorOptions:
   disableNameSuffixHash: true

@@ -3,8 +3,8 @@
 An AI agent that manages, operates, deploys, and configures **Red Hat OpenShift AI** via GitOps — in both connected and disconnected (air-gapped) environments.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Skills](https://img.shields.io/badge/Skills-22-green.svg)](skills/)
-[![Eval](https://img.shields.io/badge/Eval_Scenarios-25-orange.svg)](eval/)
+[![Skills](https://img.shields.io/badge/Skills-41-green.svg)](skills/)
+[![Eval](https://img.shields.io/badge/Eval_Scenarios-44-orange.svg)](eval/)
 [![MCP Servers](https://img.shields.io/badge/MCP_Servers-5-purple.svg)](mcp-servers/)
 [![OCP](https://img.shields.io/badge/OCP-4.17%2B-red.svg)](docs/reference/compatibility-matrix.md)
 [![RHOAI](https://img.shields.io/badge/RHOAI-3.5-red.svg)](docs/reference/compatibility-matrix.md)
@@ -83,7 +83,7 @@ graph TB
 
 ## Lifecycle Coverage
 
-The agent's 22 skills map to the full RHOAI lifecycle. Three phases are in active development.
+The agent's 41 skills map to the full RHOAI lifecycle across all 9 phases.
 
 ```mermaid
 graph LR
@@ -110,14 +110,14 @@ graph LR
 | Phase | Skills | What It Covers |
 |-------|--------|----------------|
 | **Platform Setup** | `rhoai-disconnected-deploy` `rhoai-disconnected-helper` `rhoai-install-validator` `gitops-config-generator` | Operator deployment, disconnected/air-gapped clusters, install validation, Kustomize generation |
-| **Plan** | `capacity-forecaster` `serving-runtime-advisor` `training-planner` | GPU/CPU exhaustion forecasting, runtime selection (vLLM, TEI, OpenVINO), training method + resource estimation |
-| **Administer** | `rhoai-dsc-inspector` `rhoai-platform-status` `rhoai-upgrade-advisor` | DSC component drift, layered platform readiness reports, upgrade risk assessment |
-| **Develop** | `experiment-tracker` `workbench-troubleshooter` `pipeline-debugger` | MLflow run comparison, notebook OOM/ImagePull diagnosis, pipeline step failure analysis |
-| **Deploy** | `model-promotion-workflow` `rhoai-model-lifecycle` `maas-enable` `maas-deploy-model` | GitOps promotion (dev to staging to prod), MaaS bootstrap, model deployment with governance + API keys |
-| **Monitor** | `argocd-health-check` `argocd-diagnose-sync` `daily-report-generator` `incident-runbook` `maas-debug` | Sync health, drift root-cause, automated daily reports, P1-P4 incident response, MaaS troubleshooting |
-| **Train** | *(planned)* | Distributed training setup, job monitoring, hyperparameter tuning |
-| **Evaluate** | *(planned)* | Model benchmarking (LM-Eval), bias detection, A/B test analysis |
-| **Maintain Safety** | *(planned)* | Guardrails validation, model cards, compliance checking |
+| **Plan** | `capacity-forecaster` `serving-runtime-advisor` `training-planner` `model-catalog-advisor` | GPU/CPU forecasting, runtime selection, training estimation, model catalog discovery |
+| **Administer** | `rhoai-dsc-inspector` `rhoai-platform-status` `rhoai-upgrade-advisor` `kueue-quota-manager` `hardware-profile-manager` `feature-store-setup` | DSC inspection, platform readiness, upgrades, Kueue quotas, hardware profiles, Feast Feature Store |
+| **Develop** | `experiment-tracker` `workbench-troubleshooter` `pipeline-debugger` `model-registry-manager` `workbench-provisioner` `ogx-rag-builder` `autorag-optimizer` `genai-playground-guide` | MLflow tracking, workbench debug + provisioning, pipelines, model registry, OGX RAG, AutoRAG, GenAI Playground |
+| **Deploy** | `model-promotion-workflow` `rhoai-model-lifecycle` `maas-enable` `maas-deploy-model` `llmd-deployment-manager` `kserve-model-deployer` `maas-subscription-manager` `maas-external-models` | GitOps promotion, MaaS lifecycle, llm-d distributed inference, KServe serving, MaaS governance, external models |
+| **Monitor** | `argocd-health-check` `argocd-diagnose-sync` `daily-report-generator` `incident-runbook` `maas-debug` `model-drift-monitor` | Sync health, drift root-cause, daily reports, incidents, MaaS debug, TrustyAI bias/drift monitoring |
+| **Train** | `distributed-training-setup` `automl-trainer` | RayJob/PyTorchJob with Kueue, AutoML optimization |
+| **Evaluate** | `lm-eval-runner` | LMEvalJob benchmarks via EvalHub (MMLU, HellaSwag, GSM8K) |
+| **Maintain Safety** | `nemo-guardrails-configurator` `garak-security-scanner` | NeMo Guardrails (PII, content filtering), Garak vulnerability scanning |
 
 ---
 
@@ -264,7 +264,7 @@ graph LR
 
 ## Evaluation
 
-25 eval scenarios cover 100% of skills across all 5 personas:
+44 eval scenarios cover 100% of skills across all 5 personas:
 
 ```bash
 make eval-list                 # List all scenarios
@@ -275,9 +275,9 @@ make eval-phase PHASE=monitor  # Filter by lifecycle phase
 
 | Metric | Coverage |
 |--------|----------|
-| Skills with eval scenarios | 22/22 (100%) |
+| Skills with eval scenarios | 41/41 (100%) |
 | Personas covered | 5/5 |
-| Lifecycle phases covered | 7/9 |
+| Lifecycle phases covered | 9/9 |
 | Adversarial safety tests | 3 |
 
 ---
