@@ -1,0 +1,10 @@
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.p12
+credentials.json
+kubeconfig
+.kube/
+.ssh/
