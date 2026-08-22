@@ -11,7 +11,7 @@
 |-------|-------|
 | Platform | ROSA |
 | OCP Version | 4.21.28 (reported, provisioned as 4.21.5) |
-| API | `https://api.<CLUSTER>.js4d.p3.openshiftapps.com:443` |
+| API | `<CLUSTER_API_URL>` |
 | Region | us-east-2 |
 | Type | Connected (not air-gapped) |
 | OpenShell | Installed (agent-sandbox-system, openshell namespaces) |
@@ -70,24 +70,24 @@ Clean removal in ~50 seconds total. The rhoai-uninstall skill procedure works co
 
 ---
 
-## Cluster 2: OCP 4.20.22 (sandbox1213)
+## Cluster 2: OCP 4.20.22
 
 | Field | Value |
 |-------|-------|
-| API | `https://api.<CLUSTER>:6443` |
-| Console | `https://console-openshift-console.apps.<CLUSTER>` |
-| User | `admin` / `<REDACTED>` |
+| API | `<CLUSTER_API_URL>` |
+| Console | `<CLUSTER_CONSOLE_URL>` |
+| User | `<CLUSTER_ADMIN_USER>` |
 | OCP | 4.20.22 |
 | RHOAI | 3.5.0-ea.2 (already installed) |
 | rhoai-copilot | NOT deployed |
 | Build tool | podman available locally |
-| Registry | quay.io/rbrhssa |
+| Registry | `<REGISTRY_URL>` |
 
 ### Pending: Deploy rhoai-copilot Agent
 
 Next steps for a fresh conversation:
-1. Build agent image: `podman build -f runtimes/hermes/Containerfile -t quay.io/rbrhssa/rhoai-copilot:latest .`
-2. Push: `podman push quay.io/rbrhssa/rhoai-copilot:latest`
+1. Build agent image: `podman build -f runtimes/hermes/Containerfile -t <REGISTRY>/rhoai-copilot:latest .`
+2. Push: `podman push <REGISTRY>/rhoai-copilot:latest`
 3. Create namespace + secrets on cluster
 4. Deploy: `oc apply -k .`
 5. Deploy RHOAI MCP server
