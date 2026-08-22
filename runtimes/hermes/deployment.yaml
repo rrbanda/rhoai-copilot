@@ -112,6 +112,8 @@ spec:
             # Skill mounts
             - name: skill-rhoai-connected-deploy
               mountPath: /mnt/skill-rhoai-connected-deploy
+            - name: skill-gitops-repo-scaffold
+              mountPath: /mnt/skill-gitops-repo-scaffold
             - name: skill-rhoai-disconnected-deploy
               mountPath: /mnt/skill-rhoai-disconnected-deploy
             - name: skill-rhoai-disconnected-helper
@@ -223,6 +225,9 @@ spec:
         - name: skill-rhoai-connected-deploy
           configMap:
             name: skill-rhoai-connected-deploy
+        - name: skill-gitops-repo-scaffold
+          configMap:
+            name: skill-gitops-repo-scaffold
         - name: skill-rhoai-disconnected-deploy
           configMap:
             name: skill-rhoai-disconnected-deploy

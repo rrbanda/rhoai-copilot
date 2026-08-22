@@ -27,6 +27,9 @@ configMapGenerator:
   - name: skill-rhoai-connected-deploy
     files:
       - SKILL.md=skills/platform-setup/rhoai-connected-deploy/SKILL.md
+  - name: skill-gitops-repo-scaffold
+    files:
+      - SKILL.md=skills/platform-setup/gitops-repo-scaffold/SKILL.md
   - name: skill-rhoai-disconnected-deploy
     files:
       - SKILL.md=skills/platform-setup/rhoai-disconnected-deploy/SKILL.md
