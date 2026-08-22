@@ -1,12 +1,45 @@
 ---
-skill: deploy-maas-model
-description: Deploy a model to Models-as-a-Service (MaaS) on OpenShift AI — creates MaaSSubscription, MaaSAuthPolicy, and an API key, then verifies access via the MaaS gateway
-tags: [openshift, rhoai, maas, subscription, authpolicy, api-key, models, kuadrant, gateway]
+name: deploy-maas-model
+description: "Deploy a model to Models-as-a-Service (MaaS) on OpenShift AI — creates MaaSSubscription, MaaSAuthPolicy, and an API key, then verifies access via the MaaS gateway."
+version: 1.0.0
+author: RHOAI Platform Team
+license: Apache-2.0
+platforms: [linux]
+metadata:
+  hermes:
+    tags: [RHOAI, OpenShift AI, Deploy, MaaS, MaaSSubscription, MaaSAuthPolicy, API-Key, Kuadrant, Gateway]
 ---
 
 # Deploy Model to MaaS
 
 Add a model to Models-as-a-Service (MaaS) by creating the required governance resources and issuing an API key for gateway access.
+
+## Trigger Conditions
+
+- "Deploy a model to MaaS"
+- "Add a model to Models-as-a-Service"
+- "Create a MaaS subscription for my model"
+- "Set up API key access to a model via MaaS"
+- "Publish a model to the MaaS gateway"
+- "Deploy a model and wire it through Kuadrant"
+- "How do I serve a model through MaaS on RHOAI?"
+- User wants to deploy an LLM and expose it through the MaaS governance layer
+- User wants to create MaaSSubscription, MaaSAuthPolicy, or MaaSModelRef
+
+## Required MCP Tools
+
+| Server | Tool | Purpose |
+|--------|------|---------|
+| mcp_rhoai | `list_inference_services` | Discover existing model deployments |
+| mcp_rhoai | `get_inference_service` | Detailed status of a specific deployment |
+| mcp_rhoai | `check_deployment_prerequisites` | Verify Gateway, GatewayClass, and operator readiness |
+| mcp_rhoai | `get_cluster_resources` | Check available GPU capacity across nodes |
+| mcp_rhoai | `estimate_serving_resources` | Calculate GPU/memory requirements for a model |
+| mcp_rhoai | `deploy_model` | Apply model deployment manifests |
+| mcp_openshift | `nodes_top` | Real-time node GPU/CPU/memory utilization |
+| mcp_openshift | `pods_list` | Check model server and gateway pod health |
+| mcp_openshift | `events_list` | Surface scheduling failures or readiness issues |
+| mcp_argocd | `get_application` | Check GitOps sync status for managed deployments |
 
 ## Agent Behavior Rules (MANDATORY — never skip)
 
@@ -172,7 +205,7 @@ AWS scoring prefers:
 
 ## Phase 2 — Model Deployment (LLMInferenceService)
 
-Deploy the model to the cluster using `deploy-llm.sh`. This creates a `LLMInferenceService` (`serving.kserve.io/v1alpha2`) wired to the MaaS gateway. The script runs MaaS health checks automatically before deploying.
+Deploy the model to the cluster using `deploy-llm.sh`. This creates a `LLMInferenceService` (`serving.kserve.io/v1alpha1`) wired to the MaaS gateway. The script runs MaaS health checks automatically before deploying.
 
 ### Deployment modes
 
@@ -438,3 +471,58 @@ If `./check_nodes.sh list-models | grep -i "<term>"` returns nothing:
 - Try broader search terms (family name only, e.g. `llama`, `qwen`, `deepseek`)
 - Run `./check_nodes.sh list-families` to see available model families
 - The model may not be in the catalog yet — contact the model ops team
+
+## Output Format
+
+```
+# MaaS Model Deployment Report — {timestamp}
+
+## Pre-flight
+- MaaS availability: {passed/failed}
+- Catalog match: {model_name or "HuggingFace"}
+- Estimated VRAM: {vram_gb} GB
+- GPU capacity: {available_gpus} available on cluster
+
+## Deployment
+- LLMInferenceService: {name} in {namespace}
+- Deploy mode: {vllm|llm-d}
+- Storage URI: {uri}
+- Resources: {cpu} CPU, {memory}, {gpu}× GPU
+
+## Governance
+- MaaSModelRef: {phase}
+- MaaSSubscription: {phase}
+- MaaSAuthPolicy: {phase}
+
+## Access
+- Gateway URL: {maas_url}
+- API key created: {yes/no}
+- Test request: {success/failure}
+```
+
+## Safety Constraints
+
+- Always run `check_maas_availability.sh` before any deployment — do not proceed if MaaS health checks fail
+- Never deploy a model without confirming sufficient GPU capacity via `check-machines.sh` or `mcp_rhoai.get_cluster_resources`
+- Do not create MaaSSubscription or MaaSAuthPolicy before the LLMInferenceService is Ready — governance resources depend on a running model
+- Never store API keys in manifests or Git — API keys are shown once and must be saved by the user
+- Do not modify the shared MaaS gateway Route (`maas-default-gateway`) without explicit approval — changes affect all models
+- If raising HAProxy request timeout on the shared Route, warn the user that it affects every model on the gateway
+- All deployment changes must go through Git (PR) — never apply manifests directly with `oc apply` in production
+- Verify model URI accessibility from the cluster before deploying (OCI pull, S3 connectivity, or HuggingFace reachability)
+
+## Disconnected Environment Notes
+
+- HuggingFace URIs (`hf://`) will fail without external network; use `oci://` or `pvc://` with pre-cached models instead
+- Model server images must be mirrored from `quay.io` and `registry.redhat.io` to the internal registry
+- For OCI model URIs, configure the cluster's `ImageDigestMirrorSet` to point to the internal OCI registry
+- S3 sources work if pointing to in-cluster MinIO/Ceph — ensure the endpoint URL in the data connection Secret uses the internal service address
+- The MaaS gateway, maas-api, and maas-controller images are deployed by the RHOAI operator — ensure operator catalogs are mirrored
+- PostgreSQL for maas-api must use an internally-accessible image (mirror `quay.io` postgres image)
+- API key creation and model listing via the MaaS gateway are cluster-internal operations and do not require external connectivity
+
+## Related Skills
+
+- `maas-enable` — enable MaaS on a fresh cluster (prerequisite for this skill)
+- `llmd-deployment-manager` — deploy with llm-d distributed inference (alternative deployment mode)
+- `kserve-model-deployer` — deploy via standard KServe InferenceService (non-MaaS path)

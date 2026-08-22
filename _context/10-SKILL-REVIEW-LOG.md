@@ -98,16 +98,63 @@
 
 ---
 
+## Review Batch 2: Deploy Skills (8 skills)
+
+### maas-deploy-model — 8 fixes
+- Replaced `skill:` frontmatter with full YAML frontmatter
+- Added Trigger Conditions, Required MCP Tools, Output Format, Safety Constraints, Disconnected Notes, Related Skills
+- Fixed LLMInferenceService apiVersion from `v1alpha2` to `v1alpha1`
+
+### maas-enable — 7 fixes
+- Replaced `skill:` frontmatter with full YAML frontmatter
+- Added Trigger Conditions, Required MCP Tools, Output Format, Safety Constraints, Disconnected Notes, Related Skills
+
+### llmd-deployment-manager — 3 fixes
+- Reformatted MCP tools from subsection lists to standard table
+- Removed stale ICSP reference (replaced with IDMS only)
+- Added Related Skills
+
+### kserve-model-deployer — 1 fix
+- Added Related Skills
+
+### maas-subscription-manager — 1 fix
+- Added Related Skills
+
+### maas-external-models — 1 fix
+- Added Related Skills
+
+### model-promotion-workflow — 6 fixes
+- Renamed Trigger Phrases to Trigger Conditions
+- Added Required MCP Tools table
+- Replaced non-whitelisted MLflow MCP tools with whitelisted alternatives
+- Added Safety Constraints, Disconnected Notes, Related Skills
+
+### rhoai-model-lifecycle — 5 fixes
+- Added Trigger Conditions section
+- Added Required MCP Tools table
+- Added Safety Constraints, Disconnected Notes, Related Skills
+
+**Deploy batch total: 32 issues fixed across 8 skills.**
+
+---
+
+## Cumulative Review Summary
+
+| Batch | Skills | Issues Fixed | Critical |
+|-------|:------:|:-----------:|:--------:|
+| Platform Setup | 5 | 23 | 3 |
+| Deploy | 8 | 32 | 1 (wrong apiVersion) |
+| **Total** | **13** | **55** | **4** |
+
 ## Remaining Skills to Review
 
-37 skills across 8 other lifecycle phases have NOT yet been micro-reviewed:
+29 skills across 7 other lifecycle phases have NOT yet been micro-reviewed:
 - plan (4 skills)
 - administer (6 skills)
 - develop (7 skills)
 - train (2 skills)
 - evaluate (1 skill)
-- deploy (8 skills)
 - monitor (6 skills)
 - maintain-safety (2 skills)
 
-Priority for next review batch: deploy skills (8) — these have the most operational impact.
+Priority for next review batch: monitor skills (6) — operational impact for SRE/ops personas.

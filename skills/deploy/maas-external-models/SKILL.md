@@ -379,3 +379,9 @@ curl -X POST "https://{gateway-url}/v1/chat/completions" \
   - Google Vertex AI: `<region>-aiplatform.googleapis.com`
 - **MaaS controller images**: The MaaS controller itself must still be mirrored (same as internal MaaS setup)
 - **Fallback strategy**: Configure internal models as fallbacks for when external providers are unreachable — use circuit breaker settings to trigger automatic fallback
+
+## Related Skills
+
+- `maas-subscription-manager` — Manage MaaS subscriptions, API keys, rate limiting, and usage tracking
+- `rhoai-model-lifecycle` — Track model deployments through the RHOAI serving pipeline
+- `model-promotion-workflow` — Promote models across environments with GitOps validation gates

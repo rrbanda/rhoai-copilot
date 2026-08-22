@@ -303,3 +303,9 @@ spec:
 - Usage tracking and observability dashboards require Prometheus metrics collection — verify the monitoring stack is operational in the disconnected cluster
 - Gateway Route and TLS certificates must use internally trusted CAs — the default `router-certs-default` secret works if the OpenShift ingress controller is configured with internal certificates
 - CSV usage export queries the local maas-api database — no external network access is needed for cost attribution reports
+
+## Related Skills
+
+- `maas-external-models` — Route inference to external cloud model providers through the MaaS gateway
+- `rhoai-model-lifecycle` — Track model deployments through the RHOAI serving pipeline
+- `model-promotion-workflow` — Promote models across environments with GitOps validation gates

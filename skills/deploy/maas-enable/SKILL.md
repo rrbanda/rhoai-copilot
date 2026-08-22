@@ -1,12 +1,42 @@
 ---
-skill: enable-maas
-description: Enable Models-as-a-Service (MaaS) on a fresh OpenShift AI cluster — patches DSC, creates GatewayClass/Gateway, configures Authorino TLS, deploys PostgreSQL, and verifies readiness
-tags: [openshift, rhoai, maas, dsc, gateway, kuadrant, authorino, postgresql, enable, setup]
+name: enable-maas
+description: "Enable Models-as-a-Service (MaaS) on a fresh OpenShift AI cluster — patches DSC, creates GatewayClass/Gateway, configures Authorino TLS, deploys PostgreSQL, and verifies readiness."
+version: 1.0.0
+author: RHOAI Platform Team
+license: Apache-2.0
+platforms: [linux]
+metadata:
+  hermes:
+    tags: [RHOAI, OpenShift AI, MaaS, DSC, Gateway, Kuadrant, Authorino, PostgreSQL, Enable, Setup]
 ---
 
 # Enable Models-as-a-Service (MaaS)
 
 Full setup of MaaS on an OpenShift AI cluster. Run this **once** on a fresh cluster before using `/deploy-maas-model`.
+
+## Trigger Conditions
+
+- "Enable MaaS on my cluster"
+- "Set up Models-as-a-Service"
+- "Configure the MaaS gateway"
+- "Patch DSC to enable AIGateway"
+- "Set up Kuadrant and Authorino for MaaS"
+- "Prepare the cluster for model-as-a-service deployments"
+- "How do I enable MaaS on OpenShift AI?"
+- User has a fresh RHOAI cluster and wants to enable the MaaS stack
+- User needs to configure GatewayClass, Gateway, Authorino TLS, or PostgreSQL for MaaS
+
+## Required MCP Tools
+
+| Server | Tool | Purpose |
+|--------|------|---------|
+| mcp_rhoai | `cluster_summary` | Overall cluster and RHOAI component status |
+| mcp_rhoai | `explore_cluster` | Discover installed operators and CRDs |
+| mcp_rhoai | `diagnose_resource` | Debug failing DSC components or pods |
+| mcp_rhoai | `get_cluster_resources` | Verify node capacity and readiness |
+| mcp_openshift | `pods_list` | Check operator, gateway, and maas-api pod health |
+| mcp_openshift | `events_list` | Surface issues during setup (TLS, scheduling) |
+| mcp_argocd | `get_application` | Verify GitOps sync for managed infrastructure |
 
 ## Automation Script
 
@@ -528,3 +558,62 @@ All steps in `enable-maas.sh` check for existing resources before applying. Safe
 To force-recreate a resource: `oc delete <resource>` then re-run the step.
 
 Next: `/deploy-maas-model` to deploy your first model.
+
+## Output Format
+
+```
+# MaaS Enable Report — {timestamp}
+
+## Prerequisites
+| Requirement | Status |
+|-------------|--------|
+| OpenShift ≥ 4.19 | ✓/✗ |
+| RHOAI ≥ 3.4 | ✓/✗ |
+| Connectivity Link Operator | ✓/✗ |
+| Kuadrant CR ready | ✓/✗ |
+| Gateway API CRDs | ✓/✗ |
+
+## Components
+| Step | Resource | Status |
+|------|----------|--------|
+| 2 | DSC AIGateway patch | {Applied/Skipped} |
+| 3 | Dashboard feature flags | {Applied/Skipped} |
+| 4 | GatewayClass | {Accepted/Pending} |
+| 5 | Gateway ConfigMap | {Created/Exists} |
+| 6 | Gateway | {Programmed/Pending} |
+| 7 | Authorino TLS | {Configured/Failed} |
+| 8 | PostgreSQL + DB secret | {Running/Failed} |
+| 9 | Tenant CR | {Ready/Pending} |
+| 10 | Gateway Route | {Created/Exists} |
+
+## Verification
+- AIGateway phase: {Ready/Progressing/Failed}
+- maas-api pods: {running}/{desired}
+- Gateway pod: {Running/Pending}
+- DB connection: {verified/failed}
+```
+
+## Safety Constraints
+
+- Never run on a production cluster without first reviewing the dry-run output (`--dry-run`)
+- Do not modify the DSC `aigateway` component if MaaS is already enabled — re-patching can trigger an operator reconciliation that disrupts running models
+- Authorino TLS configuration is cluster-wide — changes affect all Authorino-protected services, not just MaaS
+- The Gateway ConfigMap memory limit (3Gi) is essential — do not reduce it or the gateway pod will OOMKill when loading Kuadrant Wasm filters
+- Do not use the default PostgreSQL password (`P@ssw0rd123!`) in production — always pass `--db-password` or use an external managed database
+- The Tenant CR status must be manually patched to Ready on AITenant-managed clusters — no controller auto-sets it
+- All setup changes must go through Git (PR) — never apply infrastructure manifests directly with `oc apply` in production
+
+## Disconnected Environment Notes
+
+- The internal PostgreSQL image (`quay.io/rh-ee-msteczko/postgres:16-alpine`) must be mirrored to the internal registry; update the deployment manifest image reference accordingly
+- RHOAI operator images (maas-controller, maas-api, modelsasservice) are deployed via OLM — ensure the operator catalog is mirrored
+- Istio/Envoy gateway images are managed by the OpenShift Service Mesh operator — mirror those catalogs as well
+- Authorino images come from the Connectivity Link operator catalog — must be mirrored for disconnected environments
+- GatewayClass, Gateway, and Route resources are cluster-internal and do not require external connectivity
+- If using an external PostgreSQL, ensure the database endpoint is reachable from the `redhat-ai-gateway-infra` namespace (no external DNS required if using internal addresses)
+
+## Related Skills
+
+- `maas-deploy-model` — deploy a model to MaaS after setup (next step)
+- `llmd-deployment-manager` — deploy with llm-d distributed inference
+- `kserve-model-deployer` — deploy via standard KServe InferenceService (non-MaaS path)

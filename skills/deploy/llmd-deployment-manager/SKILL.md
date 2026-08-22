@@ -29,20 +29,17 @@ Deploy and configure LLMInferenceService resources for distributed LLM inference
 
 ## Required MCP Tools
 
-### mcp_rhoai
-- `list_inference_services` — discover existing deployments and their configurations
-- `get_inference_service` — retrieve detailed status and spec of a deployment
-- `estimate_serving_resources` — calculate GPU/memory requirements for a model
-- `check_deployment_prerequisites` — verify Gateway, GatewayClass, and operator readiness
-- `get_cluster_resources` — check available GPU capacity across nodes
-
-### mcp_openshift
-- `nodes_top` — real-time node utilization (GPU, CPU, memory)
-- `pods_list` — list model server and EPP pods, check readiness
-- `events_list` — surface scheduling failures, image pull issues, or readiness probe failures
-
-### mcp_argocd
-- `get_application` — check GitOps sync status for managed deployments
+| Server | Tool | Purpose |
+|--------|------|---------|
+| mcp_rhoai | `list_inference_services` | Discover existing deployments and their configurations |
+| mcp_rhoai | `get_inference_service` | Retrieve detailed status and spec of a deployment |
+| mcp_rhoai | `estimate_serving_resources` | Calculate GPU/memory requirements for a model |
+| mcp_rhoai | `check_deployment_prerequisites` | Verify Gateway, GatewayClass, and operator readiness |
+| mcp_rhoai | `get_cluster_resources` | Check available GPU capacity across nodes |
+| mcp_openshift | `nodes_top` | Real-time node utilization (GPU, CPU, memory) |
+| mcp_openshift | `pods_list` | List model server and EPP pods, check readiness |
+| mcp_openshift | `events_list` | Surface scheduling failures, image pull issues, or readiness probe failures |
+| mcp_argocd | `get_application` | Check GitOps sync status for managed deployments |
 
 ## Procedure
 
@@ -294,8 +291,14 @@ Deploy and configure LLMInferenceService resources for distributed LLM inference
 
 - HuggingFace URI (`hf://`) will fail without external network; use `pvc://` or `oci://` with pre-cached models instead
 - Mirror model server images from `quay.io` and `registry.redhat.io` to the internal registry
-- For OCI model URIs, the internal OCI registry must be configured as a mirror source in the cluster's ImageContentSourcePolicy or ImageDigestMirrorSet
+- For OCI model URIs, the internal OCI registry must be configured as a mirror source in the cluster's ImageDigestMirrorSet
 - S3 sources work if pointing to in-cluster MinIO/Ceph — ensure the endpoint URL in the data connection Secret uses the internal service address
 - EPP and Gateway components are deployed from operator-managed images — ensure operator catalogs are mirrored
 - Scheduler plugin configurations are cluster-internal and do not require external connectivity
 - If the model was downloaded from HuggingFace, ensure tokenizer files are included alongside model weights on the PVC/OCI artifact (vLLM requires `tokenizer_config.json`)
+
+## Related Skills
+
+- `kserve-model-deployer` — deploy standard KServe InferenceService (single-node, non-distributed)
+- `maas-deploy-model` — deploy a model and expose via the MaaS governance layer
+- `maas-enable` — enable MaaS on a fresh cluster

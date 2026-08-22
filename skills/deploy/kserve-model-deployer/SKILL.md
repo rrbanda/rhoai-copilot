@@ -354,3 +354,9 @@ spec:
 - If using S3 (MinIO), the data connection secret must include the internal MinIO endpoint and TLS CA if using self-signed certificates
 - Knative Serving (Serverless mode) requires the Knative images to be mirrored — use RawDeployment mode if Knative mirroring is incomplete
 - Ensure the OpenShift ingress controller's wildcard certificate is trusted by clients — model endpoints are exposed via OpenShift Routes
+
+## Related Skills
+
+- `llmd-deployment-manager` — deploy with llm-d for distributed multi-node inference
+- `maas-deploy-model` — deploy a model and expose via the MaaS governance layer
+- `maas-enable` — enable MaaS on a fresh cluster
