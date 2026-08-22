@@ -110,7 +110,7 @@ rhoai-copilot/
 │   ├── config.yaml     # MCP server connections and tool whitelist
 │   └── profiles/       # Environment-specific variables
 ├── skills/             # Capabilities organized by RHOAI lifecycle
-│   ├── install/        # Deployment and prerequisites
+│   ├── platform-setup/ # Platform deployment and prerequisites
 │   ├── plan/           # Capacity and architecture planning
 │   ├── administer/     # Platform configuration and upgrades
 │   ├── develop/        # ML development workflows

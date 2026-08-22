@@ -47,7 +47,7 @@ Skills are organized under these directories matching the RHOAI documentation:
 
 | Directory | Phase | Description |
 |-----------|-------|-------------|
-| `install/` | Install | Deploying RHOAI operators and prerequisites |
+| `platform-setup/` | Platform Setup | Deploying RHOAI operators and prerequisites |
 | `plan/` | Plan | Capacity planning, resource estimation, architecture |
 | `administer/` | Administer | Platform configuration, DSC management, upgrades |
 | `develop/` | Develop | Workbenches, experiments, pipelines, debugging |

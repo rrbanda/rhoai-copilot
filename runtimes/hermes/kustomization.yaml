@@ -20,16 +20,16 @@ configMapGenerator:
   # Install phase skills
   - name: skill-rhoai-disconnected-deploy
     files:
-      - SKILL.md=../../skills/install/rhoai-disconnected-deploy/SKILL.md
+      - SKILL.md=../../skills/platform-setup/rhoai-disconnected-deploy/SKILL.md
   - name: skill-rhoai-disconnected-helper
     files:
-      - SKILL.md=../../skills/install/rhoai-disconnected-helper/SKILL.md
+      - SKILL.md=../../skills/platform-setup/rhoai-disconnected-helper/SKILL.md
   - name: skill-rhoai-install-validator
     files:
-      - SKILL.md=../../skills/install/rhoai-install-validator/SKILL.md
+      - SKILL.md=../../skills/platform-setup/rhoai-install-validator/SKILL.md
   - name: skill-gitops-config-generator
     files:
-      - SKILL.md=../../skills/install/gitops-config-generator/SKILL.md
+      - SKILL.md=../../skills/platform-setup/gitops-config-generator/SKILL.md
   # Plan phase skills
   - name: skill-capacity-forecaster
     files:
