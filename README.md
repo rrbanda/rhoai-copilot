@@ -42,42 +42,7 @@ Agent:  I'll guide you through the full disconnected deployment.
 
 ## Architecture
 
-```mermaid
-graph TB
-  subgraph agent [RHOAI Copilot Agent]
-    soul[Soul + Rules]
-    skills[22 Skills]
-    workflows[3 Workflows]
-  end
-
-  subgraph mcp [MCP Servers]
-    argocd[ArgoCD MCP<br/>GitOps lifecycle]
-    rhoai[RHOAI MCP<br/>AI platform ops]
-    ocp[OpenShift MCP<br/>Cluster ops]
-    mlflow[MLflow MCP<br/>Experiment tracking]
-    github[GitHub MCP<br/>Git operations]
-  end
-
-  subgraph targets [Target Systems]
-    argoSrv[ArgoCD Server]
-    rhoaiPlatform[OpenShift AI<br/>DSC, Models, Workbenches]
-    cluster[OCP Cluster<br/>Pods, Nodes, Events]
-    mlflowSrv[MLflow Tracking<br/>Server]
-    gitRepo[GitOps Repository]
-  end
-
-  agent --> argocd
-  agent --> rhoai
-  agent --> ocp
-  agent --> mlflow
-  agent --> github
-
-  argocd --> argoSrv
-  rhoai --> rhoaiPlatform
-  ocp --> cluster
-  mlflow --> mlflowSrv
-  github --> gitRepo
-```
+![RHOAI Copilot Architecture](docs/images/architecture-overview.png)
 
 ---
 
@@ -85,27 +50,7 @@ graph TB
 
 The agent's 41 skills map to the full RHOAI lifecycle across all 9 phases.
 
-```mermaid
-graph LR
-  subgraph active [Active — 22 Skills]
-    install["Platform Setup<br/>4 skills"]
-    plan["Plan<br/>3 skills"]
-    admin["Administer<br/>3 skills"]
-    dev["Develop<br/>3 skills"]
-    deploy["Deploy<br/>4 skills"]
-    monitor["Monitor<br/>5 skills"]
-  end
-
-  subgraph planned [Planned]
-    train["Train"]
-    evaluate["Evaluate"]
-    safety["Maintain Safety"]
-  end
-
-  install --> plan --> admin --> dev --> deploy --> monitor
-  dev --> train --> evaluate
-  deploy --> safety
-```
+![RHOAI Lifecycle Coverage](docs/images/lifecycle-coverage.png)
 
 | Phase | Skills | What It Covers |
 |-------|--------|----------------|
@@ -124,16 +69,6 @@ graph LR
 ## Safety Model
 
 The agent operates under a strict 3-tier autonomy model defined in [`agent/rules.md`](agent/rules.md).
-
-```mermaid
-graph LR
-  t1["Tier 1<br/>Read-Only Advisory<br/>(default)"]
-  t2["Tier 2<br/>Controlled Writes<br/>(requires confirmation)"]
-  t3["Tier 3<br/>Autonomous Ops<br/>(pre-approved scope)"]
-
-  t1 -->|"User confirms"| t2
-  t2 -->|"Scheduled scope"| t3
-```
 
 | Tier | Mode | Example Operations | Guard Rails |
 |:----:|------|-------------------|-------------|
@@ -245,20 +180,7 @@ rhoai-copilot/
 
 Three autonomous procedures compose skills into multi-step pipelines:
 
-```mermaid
-graph LR
-  subgraph daily [Daily Health Report — cron 08:00 UTC]
-    d1[ArgoCD Health] --> d2[Platform Status] --> d3[Workbench Scan] --> d4[Model Health] --> d5[Generate Report]
-  end
-
-  subgraph drift [Drift Detection — every 4 hours]
-    dr1[List Out-of-Sync] --> dr2[Diagnose Drift] --> dr3[Classify Intent] --> dr4[Drift Report]
-  end
-
-  subgraph incident [Incident Response — manual trigger]
-    i1[Triage] --> i2[Affected Apps] --> i3[Root Cause] --> i4[Operator Health] --> i5[Disconnected Check] --> i6[Generate Runbook]
-  end
-```
+![Workflow Pipelines](docs/images/workflow-pipelines.png)
 
 ---
 
