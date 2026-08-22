@@ -14,13 +14,23 @@ metadata:
 
 Validates that a Red Hat OpenShift AI installation is complete, healthy, and properly configured. Supports both ArgoCD-managed (GitOps) and direct Kubernetes deployments. Includes comprehensive disconnected environment integrity checks derived from battle-tested deployment verification scripts.
 
-## Trigger Phrases
+## Trigger Conditions
 
 - "Validate my RHOAI installation"
 - "Is OpenShift AI installed correctly?"
 - "Post-install validation"
 - "Check RHOAI health"
 - "Verify my disconnected RHOAI deployment"
+
+## Required MCP Tools
+
+| MCP Server | Tool | Purpose |
+|------------|------|---------|
+| RHOAI | `cluster_summary` | Get DSC component status overview |
+| ArgoCD | `list_applications` | Detect GitOps deployment mode |
+| ArgoCD | `get_application` | Check operator sync/health status |
+| ArgoCD | `get_application_resource_tree` | Verify DSC managed resources |
+| OpenShift | *(various)* | Retrieve Subscriptions, CSVs, cluster config |
 
 ## Procedure
 
@@ -237,3 +247,20 @@ Validates that a Red Hat OpenShift AI installation is complete, healthy, and pro
 - Never interpret `imageID` showing external registries as a failure on mirrored clusters
 - Never check DSCI readiness via `.status.conditions` — always use `.status.phase`
 - Report findings accurately; do not suppress failures or inflate passing status
+
+## Disconnected Environment Notes
+
+- Phases 4 and 7 execute only when `ImageDigestMirrorSet` resources are detected on the cluster
+- Mirror validation checks IDMS/ITMS (not legacy ICSP) — ICSP is deprecated on OCP 4.14+
+- CRI-O records the canonical source digest in `imageID` even on mirrored clusters — `quay.io/...` in imageID is expected behavior and must NOT be flagged
+- MachineConfigPool rollouts triggered by IDMS/ITMS changes must complete before the cluster is considered healthy
+- If `disableAllDefaultSources` is not `true`, default CatalogSources will crash-loop trying to reach external registries
+
+## Related Skills
+
+- `platform-setup/rhoai-disconnected-helper` — deep-dive disconnected diagnostics (mirror gaps, pull secrets, CA trust)
+- `platform-setup/rhoai-disconnected-deploy` — deploy RHOAI in a disconnected environment
+- `platform-setup/rhoai-connected-deploy` — deploy RHOAI in a connected environment
+- `platform-setup/gitops-config-generator` — generate DSC/DSCI patches and ArgoCD Applications
+- `administer/rhoai-dsc-inspector` — inspect and explain DSC component status
+- `monitor/argocd-health-check` — ArgoCD application health monitoring

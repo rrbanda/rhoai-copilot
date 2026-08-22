@@ -14,7 +14,7 @@ metadata:
 
 Generates standalone Kustomize patches, ArgoCD Application CRs, operator Subscription YAML, and DSC/DSCI resources for RHOAI configuration management. Works with any Git repository structure — paths are configurable, not assumed.
 
-## Trigger Phrases
+## Trigger Conditions
 
 - "Enable component X"
 - "Generate config for enabling KServe"
@@ -24,6 +24,15 @@ Generates standalone Kustomize patches, ArgoCD Application CRs, operator Subscri
 - "Create an ArgoCD Application for RHOAI"
 - "Generate operator subscription YAML"
 - "Set up RHOAI from scratch via GitOps"
+
+## Required MCP Tools
+
+| MCP Server | Tool | Purpose |
+|------------|------|---------|
+| RHOAI | `cluster_summary` | Get current DSC configuration state |
+| ArgoCD | `get_application` | Identify existing Git repo, path, and revision |
+| GitHub | `create_or_update_file` | Push generated manifests to user's repo (optional) |
+| GitHub | `create_pull_request` | Open PR with generated config changes (optional) |
 
 ## Procedure
 
@@ -316,3 +325,28 @@ For full removal, delete the ArgoCD Application or remove resources from kustomi
 - For production, use `installPlanApproval: Manual` in Subscriptions to control upgrade timing
 - RHOAI 3.5 components list: kserve, modelMeshServing, dashboard, workbenches, datasciencepipelines, ray, kueue, trustyai, modelregistry, trainingoperator, feastoperator, ogx, mlflowoperator
 - `ServerSideApply=true` sync option is recommended for CRDs and large resources to avoid annotation size limits
+
+## Safety Constraints
+
+- Never apply generated manifests directly to the cluster — always output for user review and Git commit
+- Never include credentials, tokens, or secrets in generated YAML (pull secrets, registry auth, etc.)
+- Never weaken existing security settings (e.g., changing Manual installPlanApproval to Automatic in prod)
+- Generated patches must be additive — do not remove components the user did not explicitly request to remove
+- Always warn the user about ordering dependencies (DSCI before DSC, operators before components)
+
+## Disconnected Environment Notes
+
+- For disconnected environments, generated Subscriptions must use a custom CatalogSource name (not `redhat-operators`)
+- DSCInitialization `trustedCABundle.customCABundle` should be populated with the mirror registry CA certificate
+- Generated ArgoCD Applications in disconnected clusters must point to an internally-accessible Git repository
+- Add `patch-source.yaml` overrides for each operator Subscription to point to the disconnected catalog
+- Index image references in CatalogSource resources must use the mirrored registry path
+
+## Related Skills
+
+- `platform-setup/rhoai-install-validator` — validate the deployment after applying generated config
+- `platform-setup/rhoai-disconnected-deploy` — end-to-end disconnected deployment (uses generated config)
+- `platform-setup/rhoai-connected-deploy` — end-to-end connected deployment
+- `platform-setup/rhoai-disconnected-helper` — diagnose disconnected mirror and pull issues
+- `administer/rhoai-dsc-inspector` — inspect DSC component status after config changes
+- `monitor/argocd-health-check` — verify ArgoCD sync after pushing config

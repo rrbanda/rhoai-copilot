@@ -14,7 +14,7 @@ metadata:
 
 Diagnoses and validates RHOAI deployments in disconnected (air-gapped) environments by checking mirror configuration (IDMS + ITMS), pull secret validity, CA trust bundles, image sources, and CatalogSource health.
 
-## Trigger Phrases
+## Trigger Conditions
 
 - "Check disconnected setup"
 - "Why are images failing to pull?"
@@ -23,6 +23,14 @@ Diagnoses and validates RHOAI deployments in disconnected (air-gapped) environme
 - "ImagePullBackOff in air-gapped cluster"
 - "Verify oc-mirror results"
 - "Check pull secret for private registry"
+
+## Required MCP Tools
+
+| MCP Server | Tool | Purpose |
+|------------|------|---------|
+| OpenShift | *(various)* | List/get IDMS, ITMS, ICSP, Secrets, Proxy, Image config, CatalogSources, Pods, Events |
+| ArgoCD | `get_application` | Check GitOps-managed mirror config sync status |
+| ArgoCD | `list_applications` | Detect operators with resolution failures |
 
 ## Procedure
 
@@ -123,13 +131,16 @@ Diagnoses and validates RHOAI deployments in disconnected (air-gapped) environme
     - Check if the image uses a digest (required for IDMS mirroring) vs tag (requires ITMS)
     - Verify the image is in the IDMS or ITMS mapping
 20. Call `mcp_openshift_events_list` with namespace=`redhat-ods-applications` filtering for image pull events
+21. **IMPORTANT — Do NOT flag imageID showing quay.io or registry.redhat.io as a problem**:
+    - On a mirrored cluster, `imageID` in pod status shows the canonical source digest (e.g., `quay.io/modh/...@sha256:...`) even though the image was pulled from the mirror
+    - This is NORMAL CRI-O behavior — only flag actual pull failures (ImagePullBackOff, ErrImagePull)
 
 ### Phase 7: Operator Source Patching
 
-21. Call `mcp_argocd_get_application` for each operator that has `patch-source.yaml`:
+22. Call `mcp_argocd_get_application` for each operator that has `patch-source.yaml`:
     - Verify the Subscription `source` field points to the disconnected CatalogSource
     - Verify the `sourceNamespace` matches
-22. If not using ArgoCD, call `mcp_openshift_resources_list` with kind=`Subscription`:
+23. If not using ArgoCD, call `mcp_openshift_resources_list` with kind=`Subscription`:
     - Verify each operator subscription references the custom CatalogSource, not `redhat-operators`
 
 ## oc-mirror v2 Workspace Awareness
@@ -217,3 +228,28 @@ If the user references their oc-mirror workspace, check these files to validate 
 - Self-signed registry certificates require `additionalTrustBundle` in the proxy config or `additionalTrustedCA` in the image config
 - x509 errors during image pull always indicate missing CA trust configuration
 - The global pull secret in `openshift-config/pull-secret` is propagated to all nodes via MCO — changes trigger a rolling node reboot
+- **imageID on mirrored clusters**: CRI-O records the canonical source digest in `imageID` even when pulled from a mirror. Seeing `quay.io/...` or `registry.redhat.io/...` in imageID is NORMAL and must NOT be flagged as a mirror failure.
+
+## Safety Constraints
+
+- Never modify pull secrets, IDMS/ITMS, or CA trust bundles directly — this is a diagnostic/read-only skill
+- Never interpret `imageID` showing external registry references as a failure on mirrored clusters
+- Never recommend deleting IDMS/ITMS resources without confirming replacement mirrors are in place
+- Do not expose decoded pull secret credentials in output — only confirm presence/absence of auth entries
+- Report findings accurately; do not suppress or escalate severity incorrectly
+
+## Disconnected Environment Notes
+
+- This skill is purpose-built for disconnected/air-gapped environments
+- Uses `ImageDigestMirrorSet` (IDMS) and `ImageTagMirrorSet` (ITMS) — the current standard for OCP 4.14+
+- Legacy `ImageContentSourcePolicy` (ICSP) is detected and flagged for migration but still supported for diagnosis
+- All image references in RHOAI must be mirrored: operator bundles, notebook images, serving runtimes, and sidecars
+- oc-mirror v2 workspace output (`imageDigestMirrorSet.yaml`, `imageTagMirrorSet.yaml`, `catalogSource.yaml`) can be validated before applying
+
+## Related Skills
+
+- `platform-setup/rhoai-install-validator` — post-install validation including disconnected integrity checks
+- `platform-setup/rhoai-disconnected-deploy` — end-to-end disconnected RHOAI deployment
+- `platform-setup/gitops-config-generator` — generate patches and ArgoCD Applications for disconnected config
+- `monitor/argocd-health-check` — ArgoCD application health monitoring
+- `administer/rhoai-dsc-inspector` — inspect DSC component status

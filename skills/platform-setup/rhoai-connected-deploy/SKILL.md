@@ -22,6 +22,24 @@ Deploy Red Hat OpenShift AI on a connected OpenShift cluster using CLI (`oc`), W
 
 > **Disconnected clusters:** Use the `rhoai-disconnected-deploy` skill instead.
 
+## Trigger Conditions
+
+- "Deploy RHOAI on my cluster"
+- "Install OpenShift AI"
+- "Set up RHOAI 3.5 on my connected cluster"
+- "How do I install Red Hat OpenShift AI?"
+- "Deploy OpenShift AI using CLI"
+- "Set up RHOAI via GitOps"
+
+## Required MCP Tools
+
+| Server | Tool | Purpose |
+|--------|------|---------|
+| mcp_rhoai | cluster_summary | Check RHOAI installation status |
+| mcp_openshift | resources_list | List Namespaces, CatalogSources, Subscriptions, CSVs |
+| mcp_openshift | nodes_top | Verify node resources |
+| mcp_argocd | list_applications | Check ArgoCD app state (GitOps path) |
+
 ---
 
 ## Phase 1: Prerequisites Check
@@ -457,7 +475,7 @@ metadata:
   namespace: openshift-operators
 spec:
   channel: stable
-  name: lws-operator
+  name: leader-worker-set
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
@@ -472,7 +490,7 @@ metadata:
   namespace: openshift-operators
 spec:
   channel: stable
-  name: jobset-operator
+  name: job-set
   source: redhat-operators
   sourceNamespace: openshift-marketplace
   installPlanApproval: Automatic
@@ -506,7 +524,7 @@ metadata:
   name: rhods-operator
   namespace: redhat-ods-operator
 spec:
-  channel: stable-2.19
+  channel: stable-3.5
   name: rhods-operator
   source: redhat-operators
   sourceNamespace: openshift-marketplace
@@ -562,14 +580,47 @@ oc get csv -n redhat-ods-operator
 
 ---
 
-## Phase 4: Create DataScienceCluster
+## Phase 4: Apply DSCInitialization and DataScienceCluster
 
-> **Important:** Do NOT create the DSC until the RHOAI operator CSV shows `Succeeded`.
+> **Important:** Do NOT create these until the RHOAI operator CSV shows `Succeeded`.
 
-Apply the following DataScienceCluster CR. Set any component to `Removed` if you do not need it.
+### 4.1 DSCInitialization
+
+The RHOAI operator auto-creates a default DSCI on connected clusters. Verify it exists:
+
+```bash
+oc get dscinitialization default-dsci
+```
+
+If you need to customize it (e.g., monitoring namespace), apply your own:
 
 ```yaml
-apiVersion: datasciencecluster.opendatahub.io/v1
+apiVersion: dscinitialization.opendatahub.io/v1
+kind: DSCInitialization
+metadata:
+  name: default-dsci
+spec:
+  applicationsNamespace: redhat-ods-applications
+  monitoring:
+    managementState: Managed
+    namespace: redhat-ods-monitoring
+```
+
+Wait for DSCI to be Ready:
+
+```bash
+oc wait --for=jsonpath='{.status.phase}'=Ready \
+  dscinitialization/default-dsci --timeout=15m
+```
+
+### 4.2 DataScienceCluster (v2 API)
+
+**Use v2 API, not v1.** v1 silently defaults `trainer` to Managed (requires JobSet operator). v2 field name change: `datasciencepipelines` (v1) is `aipipelines` (v2). The `serving:` block from 2.x was removed in 3.x.
+
+Set any component you don't need to `Removed` -- do NOT omit it (omitted components take the operator default, which may change between versions).
+
+```yaml
+apiVersion: datasciencecluster.opendatahub.io/v2
 kind: DataScienceCluster
 metadata:
   name: default-dsc
@@ -579,35 +630,44 @@ spec:
       managementState: Managed
     workbenches:
       managementState: Managed
-    datasciencepipelines:
-      managementState: Managed
     kserve:
       managementState: Managed
-      serving:
-        ingressGateway:
-          certificate:
-            type: SelfSigned
-        managementState: Managed
+      rawDeploymentServiceConfig: Headless
+    aipipelines:
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+      registriesNamespace: rhoai-model-registries
     ray:
       managementState: Managed
     kueue:
-      managementState: Managed
-    modelregistry:
       managementState: Managed
     trustyai:
       managementState: Managed
     trainingoperator:
       managementState: Managed
+    trainer:
+      managementState: Removed
+    sparkoperator:
+      managementState: Removed
+    mlflowoperator:
+      managementState: Removed
+    feastoperator:
+      managementState: Removed
+    llamastackoperator:
+      managementState: Removed
 ```
 
 ```bash
 oc apply -f datasciencecluster.yaml
 
-# Wait for DSC to reconcile
-oc wait datasciencecluster default-dsc --for=condition=Available --timeout=600s
+# Wait for DSC Ready condition
+oc wait datasciencecluster default-dsc \
+  --for=jsonpath='{.status.conditions[?(@.type=="Ready")].status}'=True \
+  --timeout=600s
 ```
 
-For GitOps, commit the DSC YAML to your repo under `platform/datasciencecluster/` and create an ArgoCD Application targeting it.
+For GitOps, commit both DSCI and DSC YAML to your repo and create an ArgoCD Application with `ServerSideApply=true` and `SkipDryRunOnMissingResource=true`.
 
 ---
 
@@ -674,6 +734,33 @@ For GitOps, delete the corresponding ArgoCD Applications or set them to `pruneOn
 
 ---
 
+## Output Format
+
+```
+# RHOAI Connected Deployment Summary
+
+## Cluster: {OCP version}
+## RHOAI: {channel / version}
+## Method: {CLI / Console / GitOps}
+
+## Operators Installed
+| Operator | Namespace | CSV | Status |
+|----------|-----------|-----|--------|
+| cert-manager | cert-manager-operator | {csv} | Succeeded |
+| ...
+
+## RHOAI Status
+- DSCI: {Ready / Not Ready}
+- DSC: {Ready / Not Ready}
+- Dashboard: {URL}
+```
+
 ## Disconnected Environment Notes
 
-For disconnected (air-gapped) clusters that cannot reach external registries or the Red Hat operator catalog directly, use the **rhoai-disconnected-deploy** skill instead. That skill covers mirror registry setup, ImageContentSourcePolicy/ImageDigestMirrorSet configuration, and catalog mirroring procedures.
+For disconnected (air-gapped) clusters, use the **rhoai-disconnected-deploy** skill instead. It covers mirror registry setup, ImageDigestMirrorSet configuration, catalog mirroring, and dual-layer CA trust.
+
+## Related Skills
+
+- [`rhoai-disconnected-deploy`](../rhoai-disconnected-deploy/) — Disconnected/air-gapped deployment
+- [`rhoai-install-validator`](../rhoai-install-validator/) — Post-deployment validation
+- [`gitops-config-generator`](../gitops-config-generator/) — Generate Kustomize patches and ArgoCD Applications

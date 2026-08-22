@@ -737,8 +737,38 @@ oc get pods -n openshift-marketplace | grep -cE 'ImagePullBackOff|ErrImagePull'
 
 ---
 
+## Output Format
+
+For each step, produce the exact command or YAML the user should run, prefixed with where to run it (low side or high side). For template-based steps, show the file path and the specific placeholders to replace. At the end, produce a summary:
+
+```
+# Disconnected RHOAI Deployment Summary
+
+## Environment
+- OCP Version: {version}
+- RHOAI Version: {version}
+- Mirror Registry: {registry URL}
+- Deployment Method: {CLI / GitOps}
+
+## Steps Completed
+1. Mirror registry installed: {hostname}:8443
+2. Images mirrored: {count} operator + {count} workbench
+3. Cluster configured: IDMS, ITMS, CatalogSources, pull secret, CA trust
+4. Operators installed: cert-manager, OSSM3/Istio, NFD, GPU, RHOAI
+5. DSCI applied with customCABundle: Ready
+6. DSC v2 applied: Ready
+
+## Verification
+- DSCI: {Ready/Not Ready}
+- DSC: {Ready/Not Ready}
+- GatewayClass: {Accepted/Not Accepted}
+- ImagePullBackOff pods: {count}
+- Dashboard URL: {URL}
+```
+
 ## Related Skills
 
-- **rhoai-install-validator** — Post-deployment validation and health checking
-- **rhoai-upgrade** — Upgrading RHOAI in disconnected environments (re-mirror new version images)
-- **rhoai-dsc-configure** — Advanced DataScienceCluster component configuration
+- [`rhoai-install-validator`](../rhoai-install-validator/) — Post-deployment validation and health checking
+- [`rhoai-upgrade-advisor`](../../administer/rhoai-upgrade-advisor/) — Upgrade readiness assessment
+- [`gitops-config-generator`](../gitops-config-generator/) — Generate Kustomize patches and ArgoCD Applications
+- [`rhoai-disconnected-helper`](../rhoai-disconnected-helper/) — Diagnose mirror configuration and image pull issues
