@@ -60,7 +60,7 @@ ENV HERMES_HOME=/sandbox/.hermes \
 EXPOSE 18789
 ```
 
-### 1.2 Build for AMD64
+### 1.2 Build Option A: Local Build with Podman (Recommended)
 
 OpenShift runs on AMD64. If you're building on an ARM Mac (Apple Silicon), you MUST specify the platform:
 
@@ -68,15 +68,46 @@ OpenShift runs on AMD64. If you're building on an ARM Mac (Apple Silicon), you M
 podman build --platform linux/amd64 \
   -t quay.io/YOUR_ORG/rhoai-copilot:latest \
   -f runtimes/hermes/Containerfile .
+
+podman push quay.io/YOUR_ORG/rhoai-copilot:latest
 ```
 
 Without `--platform linux/amd64`, the image will fail with `exec format error` on OpenShift.
 
-### 1.3 Push to Registry
+### 1.2 Build Option B: OpenShift Binary Build
+
+If you don't have podman/docker, use OpenShift's built-in build system:
 
 ```bash
-podman push quay.io/YOUR_ORG/rhoai-copilot:latest
+# Create BuildConfig and ImageStream
+oc new-project rhoai-copilot
+
+oc create imagestream rhoai-copilot -n rhoai-copilot
+
+oc create -f - <<EOF
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: rhoai-copilot
+  namespace: rhoai-copilot
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: rhoai-copilot:latest
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: runtimes/hermes/Containerfile
+EOF
+
+# Trigger build from local directory
+oc start-build rhoai-copilot -n rhoai-copilot --from-dir=.
 ```
+
+The OpenShift build nodes are AMD64, so no platform flag is needed.
 
 For disconnected environments, push to your internal registry instead.
 
@@ -158,15 +189,21 @@ See [Obtaining Credentials](../guides/obtaining-credentials.md) for how to get e
 
 ### 2.5 Deploy with Kustomize
 
+From the repo root:
+
 ```bash
-oc apply -k runtimes/hermes/
+oc apply -k .
 ```
 
 This creates:
-- ConfigMaps for entrypoint script, soul.md, config.yaml, and all skills
-- Deployment referencing the ConfigMaps and Secrets
+- Namespace (`rhoai-copilot`)
+- ServiceAccount + ClusterRoleBinding (`cluster-reader`)
+- PVC for persistent agent state (2Gi)
+- 25 ConfigMaps (entrypoint, soul, config, + 22 skills)
+- Agent Deployment with all skill mounts
+- RHOAI MCP Deployment + Service
 - Service (ClusterIP on port 18789)
-- Route (TLS edge termination)
+- Route (TLS edge termination with 300s timeout for long responses)
 
 ### 2.6 Verify Pod is Running
 

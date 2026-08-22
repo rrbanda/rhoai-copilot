@@ -91,8 +91,8 @@ oc create secret generic rhoai-copilot-secrets \
   --from-literal=dashboard-password=YOUR_PASSWORD
 
 # Build and deploy
-make build
-make deploy
+make build push
+make deploy  # runs: oc apply -k .
 ```
 
 See [Quick Start](docs/getting-started/quickstart.md) for the 5-minute version, or the [Full Deployment Guide](docs/getting-started/deployment-guide.md) for the complete step-by-step walkthrough.

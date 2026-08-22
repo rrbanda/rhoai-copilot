@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: agent
-          image: rhoai-copilot:latest
+          image: quay.io/rbrhssa/rhoai-copilot:latest  # Override with your registry
           imagePullPolicy: Always
           command: ["/bin/bash", "/mnt/entrypoint/entrypoint.sh"]
           securityContext:
@@ -105,6 +105,51 @@ spec:
               mountPath: /persistent
             - name: tmp
               mountPath: /tmp
+            # Skill mounts
+            - name: skill-rhoai-disconnected-deploy
+              mountPath: /mnt/skill-rhoai-disconnected-deploy
+            - name: skill-rhoai-disconnected-helper
+              mountPath: /mnt/skill-rhoai-disconnected-helper
+            - name: skill-rhoai-install-validator
+              mountPath: /mnt/skill-rhoai-install-validator
+            - name: skill-gitops-config-generator
+              mountPath: /mnt/skill-gitops-config-generator
+            - name: skill-capacity-forecaster
+              mountPath: /mnt/skill-capacity-forecaster
+            - name: skill-serving-runtime-advisor
+              mountPath: /mnt/skill-serving-runtime-advisor
+            - name: skill-training-planner
+              mountPath: /mnt/skill-training-planner
+            - name: skill-rhoai-dsc-inspector
+              mountPath: /mnt/skill-rhoai-dsc-inspector
+            - name: skill-rhoai-platform-status
+              mountPath: /mnt/skill-rhoai-platform-status
+            - name: skill-rhoai-upgrade-advisor
+              mountPath: /mnt/skill-rhoai-upgrade-advisor
+            - name: skill-experiment-tracker
+              mountPath: /mnt/skill-experiment-tracker
+            - name: skill-workbench-troubleshooter
+              mountPath: /mnt/skill-workbench-troubleshooter
+            - name: skill-pipeline-debugger
+              mountPath: /mnt/skill-pipeline-debugger
+            - name: skill-model-promotion-workflow
+              mountPath: /mnt/skill-model-promotion-workflow
+            - name: skill-rhoai-model-lifecycle
+              mountPath: /mnt/skill-rhoai-model-lifecycle
+            - name: skill-maas-enable
+              mountPath: /mnt/skill-maas-enable
+            - name: skill-maas-deploy-model
+              mountPath: /mnt/skill-maas-deploy-model
+            - name: skill-argocd-health-check
+              mountPath: /mnt/skill-argocd-health-check
+            - name: skill-argocd-diagnose-sync
+              mountPath: /mnt/skill-argocd-diagnose-sync
+            - name: skill-daily-report-generator
+              mountPath: /mnt/skill-daily-report-generator
+            - name: skill-incident-runbook
+              mountPath: /mnt/skill-incident-runbook
+            - name: skill-maas-debug
+              mountPath: /mnt/skill-maas-debug
       volumes:
         - name: entrypoint
           configMap:
@@ -122,3 +167,70 @@ spec:
         - name: tmp
           emptyDir:
             sizeLimit: 2Gi
+        # Skill volumes
+        - name: skill-rhoai-disconnected-deploy
+          configMap:
+            name: skill-rhoai-disconnected-deploy
+        - name: skill-rhoai-disconnected-helper
+          configMap:
+            name: skill-rhoai-disconnected-helper
+        - name: skill-rhoai-install-validator
+          configMap:
+            name: skill-rhoai-install-validator
+        - name: skill-gitops-config-generator
+          configMap:
+            name: skill-gitops-config-generator
+        - name: skill-capacity-forecaster
+          configMap:
+            name: skill-capacity-forecaster
+        - name: skill-serving-runtime-advisor
+          configMap:
+            name: skill-serving-runtime-advisor
+        - name: skill-training-planner
+          configMap:
+            name: skill-training-planner
+        - name: skill-rhoai-dsc-inspector
+          configMap:
+            name: skill-rhoai-dsc-inspector
+        - name: skill-rhoai-platform-status
+          configMap:
+            name: skill-rhoai-platform-status
+        - name: skill-rhoai-upgrade-advisor
+          configMap:
+            name: skill-rhoai-upgrade-advisor
+        - name: skill-experiment-tracker
+          configMap:
+            name: skill-experiment-tracker
+        - name: skill-workbench-troubleshooter
+          configMap:
+            name: skill-workbench-troubleshooter
+        - name: skill-pipeline-debugger
+          configMap:
+            name: skill-pipeline-debugger
+        - name: skill-model-promotion-workflow
+          configMap:
+            name: skill-model-promotion-workflow
+        - name: skill-rhoai-model-lifecycle
+          configMap:
+            name: skill-rhoai-model-lifecycle
+        - name: skill-maas-enable
+          configMap:
+            name: skill-maas-enable
+        - name: skill-maas-deploy-model
+          configMap:
+            name: skill-maas-deploy-model
+        - name: skill-argocd-health-check
+          configMap:
+            name: skill-argocd-health-check
+        - name: skill-argocd-diagnose-sync
+          configMap:
+            name: skill-argocd-diagnose-sync
+        - name: skill-daily-report-generator
+          configMap:
+            name: skill-daily-report-generator
+        - name: skill-incident-runbook
+          configMap:
+            name: skill-incident-runbook
+        - name: skill-maas-debug
+          configMap:
+            name: skill-maas-debug

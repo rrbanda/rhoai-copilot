@@ -5,6 +5,8 @@ metadata:
   labels:
     app: rhoai-copilot
     app.kubernetes.io/part-of: rhoai-copilot
+  annotations:
+    haproxy.router.openshift.io/timeout: "300s"
 spec:
   to:
     kind: Service

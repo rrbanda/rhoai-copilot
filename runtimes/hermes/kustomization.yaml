@@ -17,6 +17,78 @@ configMapGenerator:
   - name: rhoai-copilot-config
     files:
       - config.yaml=../../agent/config.yaml
+  # Install phase skills
+  - name: skill-rhoai-disconnected-deploy
+    files:
+      - SKILL.md=../../skills/install/rhoai-disconnected-deploy/SKILL.md
+  - name: skill-rhoai-disconnected-helper
+    files:
+      - SKILL.md=../../skills/install/rhoai-disconnected-helper/SKILL.md
+  - name: skill-rhoai-install-validator
+    files:
+      - SKILL.md=../../skills/install/rhoai-install-validator/SKILL.md
+  - name: skill-gitops-config-generator
+    files:
+      - SKILL.md=../../skills/install/gitops-config-generator/SKILL.md
+  # Plan phase skills
+  - name: skill-capacity-forecaster
+    files:
+      - SKILL.md=../../skills/plan/capacity-forecaster/SKILL.md
+  - name: skill-serving-runtime-advisor
+    files:
+      - SKILL.md=../../skills/plan/serving-runtime-advisor/SKILL.md
+  - name: skill-training-planner
+    files:
+      - SKILL.md=../../skills/plan/training-planner/SKILL.md
+  # Administer phase skills
+  - name: skill-rhoai-dsc-inspector
+    files:
+      - SKILL.md=../../skills/administer/rhoai-dsc-inspector/SKILL.md
+  - name: skill-rhoai-platform-status
+    files:
+      - SKILL.md=../../skills/administer/rhoai-platform-status/SKILL.md
+  - name: skill-rhoai-upgrade-advisor
+    files:
+      - SKILL.md=../../skills/administer/rhoai-upgrade-advisor/SKILL.md
+  # Develop phase skills
+  - name: skill-experiment-tracker
+    files:
+      - SKILL.md=../../skills/develop/experiment-tracker/SKILL.md
+  - name: skill-workbench-troubleshooter
+    files:
+      - SKILL.md=../../skills/develop/workbench-troubleshooter/SKILL.md
+  - name: skill-pipeline-debugger
+    files:
+      - SKILL.md=../../skills/develop/pipeline-debugger/SKILL.md
+  # Deploy phase skills
+  - name: skill-model-promotion-workflow
+    files:
+      - SKILL.md=../../skills/deploy/model-promotion-workflow/SKILL.md
+  - name: skill-rhoai-model-lifecycle
+    files:
+      - SKILL.md=../../skills/deploy/rhoai-model-lifecycle/SKILL.md
+  - name: skill-maas-enable
+    files:
+      - SKILL.md=../../skills/deploy/maas-enable/SKILL.md
+  - name: skill-maas-deploy-model
+    files:
+      - SKILL.md=../../skills/deploy/maas-deploy-model/SKILL.md
+  # Monitor phase skills
+  - name: skill-argocd-health-check
+    files:
+      - SKILL.md=../../skills/monitor/argocd-health-check/SKILL.md
+  - name: skill-argocd-diagnose-sync
+    files:
+      - SKILL.md=../../skills/monitor/argocd-diagnose-sync/SKILL.md
+  - name: skill-daily-report-generator
+    files:
+      - SKILL.md=../../skills/monitor/daily-report-generator/SKILL.md
+  - name: skill-incident-runbook
+    files:
+      - SKILL.md=../../skills/monitor/incident-runbook/SKILL.md
+  - name: skill-maas-debug
+    files:
+      - SKILL.md=../../skills/monitor/maas-debug/SKILL.md
 
 generatorOptions:
   disableNameSuffixHash: true

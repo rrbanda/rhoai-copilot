@@ -51,7 +51,8 @@ See [Obtaining Credentials](../guides/obtaining-credentials.md) for how to get e
 ### 4. Deploy
 
 ```bash
-oc apply -k runtimes/hermes/
+# Deploy agent + RHOAI MCP + all skills in one command
+oc apply -k .
 ```
 
 ### 5. Access the dashboard
