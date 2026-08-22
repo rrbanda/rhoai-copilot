@@ -24,6 +24,9 @@ configMapGenerator:
     files:
       - config.yaml=agent/config.yaml
   # Install phase skills
+  - name: skill-rhoai-connected-deploy
+    files:
+      - SKILL.md=skills/platform-setup/rhoai-connected-deploy/SKILL.md
   - name: skill-rhoai-disconnected-deploy
     files:
       - SKILL.md=skills/platform-setup/rhoai-disconnected-deploy/SKILL.md

@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
-  <a href="skills/"><img src="https://img.shields.io/badge/Skills-41-brightgreen.svg" alt="Skills"></a>
+  <a href="skills/"><img src="https://img.shields.io/badge/Skills-42-brightgreen.svg" alt="Skills"></a>
   <a href="eval/"><img src="https://img.shields.io/badge/Eval-44_scenarios-orange.svg" alt="Eval"></a>
   <a href="mcp-servers/"><img src="https://img.shields.io/badge/MCP_Servers-5-blueviolet.svg" alt="MCP Servers"></a>
   <a href="docs/reference/compatibility-matrix.md"><img src="https://img.shields.io/badge/RHOAI-3.5-EE0000.svg" alt="RHOAI 3.5"></a>
@@ -53,7 +53,7 @@ make deploy
 
 ## Why RHOAI Copilot
 
-- **41 skills across 9 lifecycle phases** — from platform setup through model safety, covering the entire RHOAI 3.5 surface
+- **42 skills across 9 lifecycle phases** — from platform setup through model safety, covering the entire RHOAI 3.5 surface
 - **5 MCP server integrations** — ArgoCD, RHOAI, OpenShift, MLflow, and GitHub in a unified interface
 - **GitOps-native** — all configuration changes flow through Git PRs, never direct cluster mutations
 - **3-tier safety model** — read-only by default, confirmed writes for Tier 2, pre-approved scope for autonomous ops
@@ -92,7 +92,7 @@ Agent:  I'll guide you through the full disconnected deployment.
 
 | Phase | Count | Skills |
 |-------|:-----:|--------|
-| **Platform Setup** | 4 | Disconnected deploy, install validator, GitOps config generator |
+| **Platform Setup** | 5 | Connected + disconnected deploy, install validator, GitOps config generator |
 | **Plan** | 4 | Capacity forecaster, serving runtime advisor, training planner, model catalog |
 | **Administer** | 6 | DSC inspector, platform status, upgrades, Kueue quotas, hardware profiles, Feature Store |
 | **Develop** | 7 | Workbenches, pipelines, experiments, model registry, OGX/RAG, AutoRAG, GenAI Playground |

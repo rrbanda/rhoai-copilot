@@ -110,6 +110,8 @@ spec:
             - name: tmp
               mountPath: /tmp
             # Skill mounts
+            - name: skill-rhoai-connected-deploy
+              mountPath: /mnt/skill-rhoai-connected-deploy
             - name: skill-rhoai-disconnected-deploy
               mountPath: /mnt/skill-rhoai-disconnected-deploy
             - name: skill-rhoai-disconnected-helper
@@ -218,6 +220,9 @@ spec:
           emptyDir:
             sizeLimit: 2Gi
         # Skill volumes
+        - name: skill-rhoai-connected-deploy
+          configMap:
+            name: skill-rhoai-connected-deploy
         - name: skill-rhoai-disconnected-deploy
           configMap:
             name: skill-rhoai-disconnected-deploy

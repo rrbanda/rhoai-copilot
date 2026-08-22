@@ -1,61 +1,68 @@
 ---
 name: rhoai-disconnected-deploy
-description: "End-to-end guide for deploying RHOAI via GitOps in disconnected environments — generates mirror configs, validates pre-flight, diagnoses post-deploy failures."
-version: 1.0.0
+description: "End-to-end guide for deploying Red Hat OpenShift AI in disconnected (air-gapped) environments via CLI, Console, or GitOps — covers image mirroring, operator installation, and DSC creation."
+version: 2.0.0
 author: RHOAI Platform Team
 license: Apache-2.0
 platforms: [linux]
 metadata:
   hermes:
-    tags: [RHOAI, OpenShift AI, Disconnected, Air-gapped, GitOps, Mirror, oc-mirror, Deployment]
+    tags: [RHOAI, OpenShift AI, Disconnected, Air-gapped, GitOps, CLI, Console, Mirror, oc-mirror, Deployment]
 ---
 
-# RHOAI Disconnected GitOps Deployment
+# RHOAI Disconnected Environment Deployment
 
-Complete guide for deploying Red Hat OpenShift AI in disconnected (air-gapped) environments using this GitOps repository. Operates in 3 modes: pre-deployment guidance, pre-flight validation, and post-deploy diagnosis.
+Deploy Red Hat OpenShift AI in a disconnected (air-gapped) OpenShift cluster. Supports three deployment methods — CLI (`oc`), Console (OperatorHub UI), and GitOps (ArgoCD) — and two network topologies: partially disconnected (bastion with dual access) and fully disconnected (sneakernet/data diode).
 
-## Trigger Phrases
+## Trigger Conditions
 
-**Mode 1 — Pre-Deployment Guide:**
-- "Deploy RHOAI in disconnected environment"
-- "How do I set up RHOAI in an air-gapped cluster?"
+- "Deploy RHOAI in a disconnected environment"
+- "How do I set up OpenShift AI in an air-gapped cluster?"
 - "Generate the mirror configuration for RHOAI"
-- "What do I need to mirror for OpenShift AI?"
-
-**Mode 2 — Pre-Flight Validation:**
-- "Validate disconnected setup"
-- "Are we ready to deploy in disconnected mode?"
-- "Check if mirroring is complete"
-- "Pre-flight check for disconnected"
-
-**Mode 3 — Post-Deploy Diagnosis:**
-- "Why is my disconnected deployment failing?"
-- "ImagePullBackOff in disconnected cluster"
-- "Operators stuck after mirroring"
-- "CatalogSource not ready"
+- "What images do I need to mirror for OpenShift AI?"
+- "Install RHOAI operators offline"
+- "Set up RHOAI without internet access"
 
 ---
 
-## Mode 1: Pre-Deployment Guide
+## Required MCP Tools
 
-### When to use
-User wants to deploy RHOAI from scratch in a disconnected environment and needs step-by-step guidance.
+| Server | Tool | Purpose |
+|--------|------|---------|
+| mcp_rhoai | cluster_summary | Check RHOAI installation status and DSC state |
+| mcp_rhoai | explore_cluster | Inspect platform health, workbenches, model serving |
+| mcp_openshift | resources_list | List Namespace, CatalogSource, IDMS resources |
+| mcp_argocd | list_applications | Check ArgoCD app state (GitOps path) |
+| mcp_argocd | get_application | Inspect individual ArgoCD app health (GitOps path) |
 
-### Procedure
+---
 
-#### Step 1: Gather Deployment Requirements
+## Procedure
 
-Ask the user for:
-1. **Target OCP version** (4.19, 4.20, etc.) — determines catalog index tag
-2. **RHOAI version/channel** (fast, stable, eus, or specific version like 3.5.0)
-3. **Private registry URL** (e.g., `myregistry.example.com:5000`)
-4. **Internal Git URL** (where this repo is hosted, e.g., `https://gitea.internal/platform/rhoai-deploy-gitops.git`)
-5. **Which DSC components to enable** (KServe, Workbenches, Pipelines, Ray, ModelRegistry, etc.)
-6. **GPU workloads needed?** (determines if GPU operator + NFD must be mirrored)
+### Step 1: Gather Requirements
 
-#### Step 2: Generate ImageSetConfiguration
+Ask the user for the following before proceeding:
 
-Based on the answers, produce a customized `ImageSetConfiguration`:
+1. **OCP version** — 4.19 or later (determines catalog index tag)
+2. **RHOAI version / channel** — `fast`, `stable`, or `eus` (or a specific version like `3.5.0`)
+3. **Private registry URL** — e.g. `myregistry.example.com:5000`
+4. **Deployment method** — CLI (`oc` commands), Console (OperatorHub UI), or GitOps (ArgoCD)
+5. **DSC components needed** — which DataScienceCluster components to enable (KServe, Workbenches, Pipelines, Ray, ModelRegistry, TrustyAI, etc.)
+6. **GPU workloads needed?** — determines whether NFD and the GPU Operator must be mirrored and installed
+
+Store these as variables for use throughout the remaining steps:
+
+- `{OCP_VERSION}` — e.g. `4.19`
+- `{CHANNEL}` — e.g. `fast`
+- `{REGISTRY}` — e.g. `myregistry.example.com:5000`
+- `{DEPLOY_METHOD}` — `cli`, `console`, or `gitops`
+- `{GPU_REQUIRED}` — `true` or `false`
+
+---
+
+### Step 2: Generate ImageSetConfiguration
+
+Produce a customized `ImageSetConfiguration` for oc-mirror v2:
 
 ```yaml
 kind: ImageSetConfiguration
@@ -67,12 +74,6 @@ mirror:
         - name: rhods-operator
           channels:
             - name: {CHANNEL}
-              # Optional version pinning:
-              # minVersion: "{VERSION}"
-              # maxVersion: "{VERSION}"
-        - name: openshift-gitops-operator
-          channels:
-            - name: latest
         - name: openshift-cert-manager-operator
           channels:
             - name: stable-v1
@@ -100,229 +101,424 @@ mirror:
         - name: openshift-external-secrets-operator
           channels:
             - name: stable-v1
-    # GPU operator (certified-operators index)
     - catalog: registry.redhat.io/redhat/certified-operator-index:v{OCP_VERSION}
       packages:
         - name: gpu-operator-certified
           channels:
             - name: stable
   additionalImages:
-    # Workload images from this repo
-    - name: registry.redhat.io/openshift4/ose-cli:v4.18
-    - name: registry.redhat.io/rhel9/postgresql-15:1
-    - name: registry.redhat.io/rhaiis/vllm-cuda-rhel9:3.3.0
-    # IMPORTANT: Add platform images from
-    # https://github.com/red-hat-data-services/rhoai-disconnected-install-helper
+    # ── IMPORTANT ──────────────────────────────────────────────────────
+    # Get the COMPLETE additional-images list from:
+    #   https://github.com/red-hat-data-services/rhoai-disconnected-install-helper
+    # Navigate to the file matching your RHOAI version (e.g. rhoai-3.5.md).
+    # That list is auto-updated by Red Hat and includes notebook images,
+    # runtime images, and model serving images that are NOT in the
+    # operator catalog.
+    # ───────────────────────────────────────────────────────────────────
+    #
+    # Example entries (these alone are NOT sufficient):
+    - name: registry.redhat.io/rhaiis/vllm-cuda-rhel9:latest
+    - name: registry.redhat.io/rhoai/odh-minimal-notebook-container-rhel9:latest
+    - name: registry.redhat.io/rhoai/odh-pytorch-notebook-container-rhel9:latest
+    - name: registry.redhat.io/rhoai/odh-codeserver-notebook-container-rhel9:latest
 ```
 
-**Tell the user**: "You MUST also merge the additionalImages from the official RHOAI disconnected install helper for your version. Get them from: https://github.com/red-hat-data-services/rhoai-disconnected-install-helper"
+Instruct the user: "You **must** merge the full `additionalImages` list from the [rhoai-disconnected-install-helper](https://github.com/red-hat-data-services/rhoai-disconnected-install-helper) for your specific RHOAI version. The operator catalog does NOT contain notebook images, workbench images, or model serving runtime images — those are only distributed as `additionalImages`."
 
-#### Step 3: Produce Mirror Commands
+If `{GPU_REQUIRED}` is `false`, remove the `certified-operator-index` section and the `gpu-operator-certified` package.
+
+---
+
+### Step 3: Mirror Images (oc-mirror v2)
+
+Present the appropriate mirroring workflow based on network topology.
+
+#### Path A — Partially Disconnected (bastion has access to both networks)
 
 ```bash
-# On connected bastion:
-# 1. Mirror to disk (for fully air-gapped)
-oc mirror -c imageset-config.yaml file://./mirror-rhoai --v2
-
-# 2. Transfer files to disconnected network (sneakernet/diode)
-
-# 3. Upload from disk to private registry
-oc mirror -c imageset-config.yaml --from file://./mirror-rhoai docker://{REGISTRY} --v2
-
-# OR for partially-disconnected (bastion has access to both):
 oc mirror -c imageset-config.yaml docker://{REGISTRY} --v2
 ```
 
-#### Step 4: Produce Cluster Setup Commands
+This directly pulls from Red Hat registries and pushes to the private registry in a single step.
+
+#### Path B — Fully Disconnected (sneakernet / data diode)
+
+**On the connected side** (internet-facing workstation):
 
 ```bash
-# Apply generated cluster resources (IDMS + CatalogSource)
-oc apply -f ./mirror-rhoai/working-dir/cluster-resources/
+oc mirror -c imageset-config.yaml file://./mirror-rhoai --v2
+```
 
-# Verify CatalogSource is READY
+This downloads all images to the `./mirror-rhoai` directory on local disk.
+
+**Transfer** the `./mirror-rhoai` directory to the disconnected network via approved media (USB, data diode, etc.).
+
+**On the disconnected side** (with access to the private registry):
+
+```bash
+oc mirror -c imageset-config.yaml --from file://./mirror-rhoai docker://{REGISTRY} --v2
+```
+
+This uploads the previously-downloaded images into the private registry.
+
+---
+
+### Step 4: Apply Cluster Resources
+
+oc-mirror v2 generates cluster resources in a results directory. These include:
+
+| Resource | Purpose |
+|----------|---------|
+| **IDMS** (ImageDigestMirrorSet) | Tells CRI-O to redirect image pulls by digest to the mirror |
+| **ITMS** (ImageTagMirrorSet) | Tells CRI-O to redirect image pulls by tag to the mirror |
+| **CatalogSource** | Points OLM at the mirrored operator index |
+
+> **Note:** oc-mirror v2 generates IDMS/ITMS, NOT the deprecated ICSP (ImageContentSourcePolicy). Do not apply ICSP resources.
+
+Apply the generated resources:
+
+```bash
+oc apply -f ./oc-mirror-workspace/results-*/
+```
+
+Verify the CatalogSource is ready:
+
+```bash
 oc get catalogsource -n openshift-marketplace
-# Note the CatalogSource name — you need it for configure.sh
 ```
 
-#### Step 5: Produce configure.sh Command
+The output should show a CatalogSource (typically named `cs-redhat-operator-index` and, if GPU is included, `cs-certified-operator-index`) with `READY` status. Record these names — they are needed in Step 7 and Step 8 for Subscription `source` fields.
+
+---
+
+### Step 5: Disable Default OperatorHub Sources
+
+Disable the default catalog sources so OLM only resolves packages from the mirrored catalogs:
 
 ```bash
-./scripts/configure.sh \
-  --repo {GIT_URL} \
-  --overlay disconnected \
-  --catalog-source {CATALOG_NAME} \
-  --certified-catalog-source {CERTIFIED_CATALOG_NAME} \
-  --registry {REGISTRY} \
-  --channel {CHANNEL} \
-  --dsc {DSC_PROFILE}
+oc patch operatorhub cluster --type json \
+  -p '[{"op":"add","path":"/spec/disableAllDefaultSources","value":true}]'
 ```
 
-Explain what configure.sh does:
-- Updates all 12 operator `patch-source.yaml` files to use the mirrored CatalogSource
-- Rewrites container image references to use the private registry
-- Sets the DSC to air-gapped mode (`nim.airGapped: true`)
-- Generates `patch-channel.yaml` files if channels differ from defaults
-
-#### Step 6: Deploy Command
+Verify:
 
 ```bash
-git add -A && git commit -m "Configure for disconnected cluster" && git push
+oc get catalogsource -n openshift-marketplace
+```
 
-# Bootstrap ArgoCD
-until oc apply -k bootstrap/overlays/disconnected; do sleep 10; done
+Only the mirrored CatalogSource(s) from Step 4 should remain.
+
+---
+
+### Step 6: Configure Pull Secret for Private Registry
+
+The cluster's global pull secret must include credentials for the private registry. Generate and apply the updated pull secret:
+
+```bash
+# Extract the current pull secret
+oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > current-pull-secret.json
+
+# Add the private registry credentials (use podman or a JSON editor)
+podman login --authfile current-pull-secret.json {REGISTRY}
+
+# Apply the updated pull secret
+oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=current-pull-secret.json
+```
+
+> **Warning:** Updating the global pull secret triggers a rolling reboot of all nodes managed by the Machine Config Operator. Plan for this maintenance window.
+
+If the private registry uses a self-signed or internal CA certificate, create a ConfigMap with the CA bundle and patch the image configuration:
+
+```bash
+oc create configmap registry-ca \
+  -n openshift-config \
+  --from-file={REGISTRY_HOSTNAME}..{PORT}=/path/to/ca-bundle.crt
+
+oc patch image.config.openshift.io/cluster --patch '{"spec":{"additionalTrustedCA":{"name":"registry-ca"}}}' --type=merge
 ```
 
 ---
 
-## Mode 2: Pre-Flight Validation
+### Step 7: Install Dependency Operators
 
-### When to use
-User has completed mirroring and configure.sh but wants to verify everything is correct BEFORE deploying.
+Install operators in the following order. Order matters because later operators depend on earlier ones.
 
-### Procedure
+#### Operator Installation Order
 
-1. Call `mcp_argocd_list_applications` to check if ArgoCD is already running:
-   - If no applications exist yet → this is a fresh deployment, skip to step 4
-   - If applications exist → this is an existing cluster, validate current state
+| # | Operator | Channel | Namespace | Required? |
+|---|----------|---------|-----------|-----------|
+| 1 | openshift-cert-manager-operator | stable-v1 | redhat-ods-operator | Always |
+| 2 | servicemeshoperator3 | stable | openshift-operators | Always (KServe dependency) |
+| 3 | nfd | stable | openshift-nfd | If GPU workloads |
+| 4 | gpu-operator-certified | stable | nvidia-gpu-operator | If GPU workloads |
+| 5 | kueue-operator | stable-v1.4 | openshift-operators | If Kueue component enabled |
+| 6 | leader-worker-set | stable-v1.0 | openshift-operators | Optional |
+| 7 | job-set | stable-v1.0 | openshift-operators | Optional |
+| 8 | openshift-external-secrets-operator | stable-v1 | openshift-operators | Optional |
+| 9 | openshift-custom-metrics-autoscaler-operator | stable | openshift-operators | Optional |
 
-2. Call `mcp_argocd_get_application` for each operator app to check:
-   - Is the `source` field in the Subscription pointing to the mirrored CatalogSource?
-   - Is the health `Degraded` with `CatalogSourcesUnhealthy` or `ResolutionFailed`?
-   - These indicate the mirror catalog is not configured or not reachable
+#### CLI Path (`oc`)
 
-3. Call `mcp_rhoai_cluster_summary` to verify RHOAI API responsiveness:
-   - If it responds → operator is installed and DSC exists
-   - If it fails → operator may not be installed yet
+For each operator, generate a Subscription YAML. Example for cert-manager (operator #1):
 
-4. Check the repo configuration (using knowledge of this repo's structure):
-   - Verify `patch-source.yaml` files exist for all operators (12 files)
-   - Verify `bootstrap/overlays/disconnected/kustomization.yaml` references the correct overlay
-   - Verify `patch-gitops-source.yaml` patches the GitOps operator subscription
-
-5. Produce a pre-flight report:
-
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redhat-ods-operator
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: redhat-ods-operator
+  namespace: redhat-ods-operator
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: openshift-cert-manager-operator
+  namespace: redhat-ods-operator
+spec:
+  channel: stable-v1
+  installPlanApproval: Automatic
+  name: openshift-cert-manager-operator
+  source: cs-redhat-operator-index       # ← must match CatalogSource from Step 4
+  sourceNamespace: openshift-marketplace
 ```
-# Pre-Flight Validation Report
 
-## CatalogSource
-- Name: {detected or configured}
-- Status: {READY / NOT FOUND / TRANSIENT_FAILURE}
-- Issue: {if any}
+For each operator:
+- Create the namespace if it doesn't already exist
+- Create an OperatorGroup if the namespace doesn't have one
+- Create the Subscription with `source` pointing to the mirrored CatalogSource name from Step 4
+- Wait for the operator to reach `Succeeded` phase before proceeding to the next:
 
-## Operators Configured for Disconnected
-| Operator | patch-source.yaml exists | Source value | Correct? |
-|----------|-------------------------|-------------|----------|
-| rhoai-operator | Yes/No | {value} | Yes/No |
-| cert-manager | Yes/No | {value} | Yes/No |
-| ... | ... | ... | ... |
+```bash
+oc get csv -n {NAMESPACE} --watch
+```
 
-## Missing Configuration
-{List any issues that will block deployment}
+For the GPU Operator (operator #4), use `source: cs-certified-operator-index` since it comes from the certified catalog.
 
-## Ready to Deploy: {YES / NO — fix issues first}
+#### Console Path (OperatorHub UI)
+
+For each operator in order:
+1. Navigate to **Operators → OperatorHub**
+2. Search for the operator name
+3. Select the operator and choose the channel listed in the table above
+4. Set the installation namespace as listed in the table
+5. Set update approval to **Automatic**
+6. Click **Install**
+7. Wait for the operator to show **Succeeded** in **Operators → Installed Operators** before installing the next one
+
+#### GitOps Path (ArgoCD)
+
+For each operator, generate an ArgoCD Application that wraps the Subscription manifests. Example for cert-manager:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-operator
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: {GIT_REPO_URL}
+    targetRevision: main
+    path: operators/cert-manager
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: redhat-ods-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Use `argocd.argoproj.io/sync-wave` annotations to enforce installation order. The Git repository should contain the Namespace, OperatorGroup, and Subscription manifests for each operator in the `path` directory.
+
+Default `syncPolicy` to include `dryRun: true` initially — instruct the user to remove it only after reviewing the sync plan.
+
+---
+
+### Step 8: Install RHOAI Operator
+
+#### CLI Path
+
+```yaml
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: rhods-operator
+  namespace: redhat-ods-operator
+spec:
+  channel: {CHANNEL}
+  installPlanApproval: Automatic
+  name: rhods-operator
+  source: cs-redhat-operator-index       # ← must match CatalogSource from Step 4
+  sourceNamespace: openshift-marketplace
+```
+
+```bash
+oc apply -f rhods-operator-subscription.yaml
+
+# Wait for the operator to install
+oc get csv -n redhat-ods-operator --watch
+```
+
+#### Console Path
+
+1. Navigate to **Operators → OperatorHub**
+2. Search for **Red Hat OpenShift AI**
+3. Select the operator and choose channel `{CHANNEL}`
+4. Install in namespace **redhat-ods-operator**
+5. Set update approval to **Automatic**
+6. Click **Install**
+7. Wait for status to show **Succeeded**
+
+#### GitOps Path
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rhoai-operator
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: default
+  source:
+    repoURL: {GIT_REPO_URL}
+    targetRevision: main
+    path: operators/rhoai
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: redhat-ods-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+Set the sync-wave higher than all dependency operators to ensure they install first.
+
+---
+
+### Step 9: Create DataScienceCluster
+
+Generate a DSC custom resource based on the user's selected components. All RHOAI 3.5 components are listed below — set each to `Managed` or `Removed` based on the user's requirements from Step 1.
+
+```yaml
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+spec:
+  components:
+    dashboard:
+      managementState: Managed
+    workbenches:
+      managementState: Managed
+    datasciencepipelines:
+      managementState: Managed
+    kserve:
+      managementState: Managed
+      serving:
+        ingressGateway:
+          certificate:
+            type: SelfSigned
+        managementState: Managed
+        name: knative-serving
+    ray:
+      managementState: Managed
+    kueue:
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+    trustyai:
+      managementState: Managed
+    trainingoperator:
+      managementState: Managed
+    feastoperator:
+      managementState: Removed
+    ogx:
+      managementState: Removed
+```
+
+Apply the DSC:
+
+```bash
+# CLI
+oc apply -f datasciencecluster.yaml
+
+# Verify
+oc get datasciencecluster default-dsc -o jsonpath='{.status.phase}'
+```
+
+For the GitOps path, include the DSC manifest in the Git repository and create an ArgoCD Application with a sync-wave higher than the RHOAI operator Application.
+
+Wait for the DSC to reach `Ready` phase. This may take several minutes as the operator reconciles all components.
+
+---
+
+### Step 10: Validate
+
+Hand off to the **rhoai-install-validator** skill for comprehensive post-deployment validation.
+
+If the validator skill is not available, perform these manual checks:
+
+```bash
+# All operator CSVs should be Succeeded
+oc get csv -A | grep -E 'rhods|cert-manager|servicemesh|nfd|gpu|kueue'
+
+# DSC should be Ready
+oc get datasciencecluster -o jsonpath='{.items[0].status.phase}'
+
+# Dashboard route should exist
+oc get route -n redhat-ods-applications rhods-dashboard
+
+# No ImagePullBackOff pods
+oc get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded | grep -v Completed
+
+# CatalogSource is healthy
+oc get catalogsource -n openshift-marketplace
 ```
 
 ---
 
-## Mode 3: Post-Deploy Diagnosis
+## Output Format
 
-### When to use
-User has deployed but something is failing — operators stuck, pods not starting, images not pulling.
+Present results to the user as:
 
-### Procedure
-
-1. Call `mcp_argocd_list_applications` and identify unhealthy apps:
-   - `Degraded` with `CatalogSourcesUnhealthy` → CatalogSource problem
-   - `Degraded` with `ResolutionFailed` → package not in mirrored catalog
-   - `Missing` → application never created (bootstrap issue)
-   - `ComparisonError` → Git branch/revision not accessible
-
-2. For each degraded operator, call `mcp_argocd_get_application`:
-   - Check `status.conditions` and `status.operationState`
-   - Look for specific error messages
-
-3. Call `mcp_rhoai_explore_cluster` to check platform state:
-   - Are models failing? (possible runtime image not mirrored)
-   - Are workbenches failing? (possible notebook image not mirrored)
-
-4. Apply the diagnosis decision tree:
-
-| Symptom | Root Cause | Fix |
-|---------|-----------|-----|
-| `CatalogSourcesUnhealthy` on operator | CatalogSource pod can't pull mirrored index | Verify: `oc get catalogsource -n openshift-marketplace`, check index image is mirrored |
-| `ResolutionFailed` on operator | Package not found in mirrored catalog | Re-run oc-mirror with the missing package added to ImageSetConfiguration |
-| `ComparisonError` on all apps | Git repo unreachable from cluster | ArgoCD can't reach internal Git — check network/DNS from `openshift-gitops` namespace |
-| DSC `Degraded` but operators `Healthy` | DSC component images not mirrored | Merge additionalImages from rhoai-disconnected-install-helper and re-mirror |
-| Specific pod `ImagePullBackOff` | Image not in IDMS mapping | Add image to `additionalImages` in ImageSetConfiguration, re-run oc-mirror |
-| Subscription stuck `UpgradePending` | InstallPlan needs approval OR version mismatch | Check `installPlanApproval: Automatic` in Subscription; verify version exists in catalog |
-| All operators healthy but no workbenches | Notebook images not mirrored | Mirror notebook images from rhoai-disconnected-install-helper |
-| Model serving fails | vLLM/TGI runtime image not mirrored | Add runtime image to additionalImages and re-mirror |
-
-5. For each issue found, produce the specific fix:
-
-```
-## Issue: {description}
-### Root Cause: {explanation}
-### Fix:
-1. Add to your ImageSetConfiguration:
-   ```yaml
-   additionalImages:
-     - name: {exact image reference}
-   ```
-2. Re-run: `oc mirror -c imageset-config.yaml docker://{registry} --v2`
-3. After mirroring completes, the pod will auto-heal (IDMS already configured)
-```
+1. **Generated files** — each YAML block clearly labeled with its purpose and a suggested filename
+2. **Command sequence** — numbered list of `oc` commands in execution order
+3. **Verification checklist** — table of expected outcomes with pass/fail indicators
+4. **Next steps** — what to do after successful deployment (create workbenches, deploy models, etc.)
 
 ---
 
-## Repository-Specific Knowledge
+## Safety Constraints
 
-### File Locations
-- ImageSetConfiguration template: `disconnected/imageset-config-template.yaml`
-- Bootstrap overlay: `bootstrap/overlays/disconnected/`
-- Operator patch files: `components/operators/{name}/patch-source.yaml`
-- Channel patches: `components/operators/{name}/patch-channel.yaml`
-- Configure script: `scripts/configure.sh`
-- Mirror script: `scripts/mirror-images.sh`
-- Full documentation: `docs/disconnected.md`
+- Never suggest running `oc-mirror` with `--continue-on-error` in production — partial mirrors cause silent failures downstream
+- Never skip certificate configuration steps for the private registry — unsigned registries cause `x509: certificate signed by unknown authority` errors that are difficult to diagnose
+- Never assume network access is available — every command that contacts a registry must be explicitly placed on the correct side of the air gap
+- Always verify mirror completeness before deploying operators — a missing image will cause indefinite `ImagePullBackOff`
+- Default sync operations to `dryRun: true` for the GitOps path — let the user review before applying
+- Never embed registry credentials in YAML files or Git repositories — use Kubernetes secrets and the global pull secret exclusively
+- Never weaken or bypass image signature verification without explicit user acknowledgment
 
-### Operators Managed (12 total)
-| Operator | Default Channel | Catalog |
-|----------|----------------|---------|
-| rhods-operator (RHOAI) | fast | redhat-operator-index |
-| openshift-cert-manager-operator | stable-v1 | redhat-operator-index |
-| nfd | stable | redhat-operator-index |
-| gpu-operator-certified | stable | certified-operator-index |
-| kueue-operator | stable-v1.4 | redhat-operator-index |
-| leader-worker-set (LWS) | stable-v1.0 | redhat-operator-index |
-| job-set | stable-v1.0 | redhat-operator-index |
-| openshift-custom-metrics-autoscaler | stable | redhat-operator-index |
-| servicemeshoperator3 | stable | redhat-operator-index |
-| rhcl-operator | stable | redhat-operator-index |
-| openshift-external-secrets-operator | stable-v1 | redhat-operator-index |
-| rhdh (optional) | fast | redhat-operator-index |
+## Disconnected Environment Notes
 
-### DSC Components (RHOAI 3.5)
-| Component | managementState options | Dependencies |
-|-----------|------------------------|--------------|
-| kserve | Managed/Removed | ServiceMesh, cert-manager |
-| dashboard | Managed/Removed | None |
-| workbenches | Managed/Removed | None |
-| aipipelines | Managed/Removed | None |
-| ray | Managed/Removed | None |
-| kueue | Managed/Removed | kueue-operator |
-| modelregistry | Managed/Removed | None |
-| trustyai | Managed/Removed | None |
-| mlflowoperator | Managed/Removed | None |
-| trainingoperator | Managed/Removed | None |
-| feastoperator | Managed/Removed | None |
-| ogx | Managed/Removed | None |
+This IS the disconnected deployment skill. All procedures assume no internet access from the OpenShift cluster. Every image reference, operator catalog, and container runtime dependency must be mirrored to the private registry before any installation step can succeed.
 
-### Common Disconnected Pitfalls
-1. **Forgetting platform images**: oc-mirror only mirrors operator bundles. Notebook images, Ray images, and model serving runtimes are NOT in the catalog — they must be in `additionalImages`
-2. **CatalogSource name mismatch**: oc-mirror generates a name like `cs-redhat-operator-index`. This exact name must be passed to `configure.sh --catalog-source`
-3. **Certified vs Red Hat catalogs**: GPU operator is in `certified-operator-index`, all others in `redhat-operator-index`. Two separate catalog names needed.
-4. **Channel drift**: Mirrored catalog may have different channel names than public catalog. Use `oc get packagemanifest` to check available channels.
-5. **IDMS not applied**: If oc-mirror output IDMS is not applied to the cluster, CRI-O won't redirect pulls to the mirror.
-6. **Pull secret incomplete**: Global pull secret must include credentials for the private registry.
-7. **oc-mirror v1 vs v2**: RHOAI 3.5 requires v2 (`--v2` flag). v1 is deprecated and may produce incompatible output.
+## Related Skills
+
+- **rhoai-install-validator** — Post-deployment validation and health checking
+- **rhoai-upgrade** — Upgrading RHOAI in disconnected environments (re-mirror new version images)
+- **rhoai-dsc-configure** — Advanced DataScienceCluster component configuration
