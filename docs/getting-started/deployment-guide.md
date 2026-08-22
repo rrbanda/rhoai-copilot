@@ -24,41 +24,10 @@ The agent runs as a single container with Python (Hermes Agent), Node.js (ArgoCD
 
 ### 1.1 Containerfile
 
-```dockerfile
-# RHOAI Copilot — Hermes Runtime
-FROM python:3.13-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      bash curl git ca-certificates xz-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN mkdir -p /sandbox && python3 -m venv /sandbox/.venv
-
-RUN /sandbox/.venv/bin/pip install --no-cache-dir \
-      "hermes-agent>=0.19.0" \
-      aiohttp \
-      "mcp>=1.8.1,<2.0" \
-      pyyaml \
-      fastapi \
-      "uvicorn[standard]" \
-      websockets
-
-ARG NODE_VERSION=22.16.0
-RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
-      | tar -xJf - -C /usr/local --strip-components=1 \
-    && node --version && npm --version
-
-# Pre-install MCP server binaries (avoids npx download at runtime)
-RUN npm install -g argocd-mcp@latest
-RUN npm install -g @modelcontextprotocol/server-github@latest
-
-ENV HERMES_HOME=/sandbox/.hermes \
-    HOME=/sandbox \
-    PATH="/sandbox/.venv/bin:/usr/local/bin:$PATH" \
-    BOOTSTRAP_DEPS=0
-
-EXPOSE 18789
-```
+The agent image definition is at `runtimes/hermes/Containerfile`. It installs:
+- Python 3.13 + Hermes Agent + MCP SDK
+- Node.js 22 + ArgoCD MCP + GitHub MCP (pre-installed globally)
+- `gettext-base` for `envsubst` (used by entrypoint to resolve env vars in config.yaml)
 
 ### 1.2 Option A: Use Pre-built Image (Fastest)
 
@@ -130,70 +99,16 @@ For disconnected environments, push to your internal registry instead.
 
 ## Phase 2: Deploy Core Infrastructure
 
-### 2.1 Create Namespace
+### 2.1 Create Namespace and Secret
+
+The Kustomize base creates the namespace, but secrets must be created manually (they contain sensitive values not stored in Git):
 
 ```bash
 oc new-project rhoai-copilot
-```
 
-### 2.2 Create RBAC
-
-The agent needs read-only access to cluster resources for the OpenShift MCP:
-
-```yaml
-# rbac.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: rhoai-copilot
-  namespace: rhoai-copilot
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: rhoai-copilot-cluster-reader
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-reader
-subjects:
-  - kind: ServiceAccount
-    name: rhoai-copilot
-    namespace: rhoai-copilot
-```
-
-```bash
-oc apply -f rbac.yaml
-```
-
-The `cluster-reader` ClusterRole is a built-in OpenShift role that grants read-only access to all cluster resources. This is required for the OpenShift MCP to list pods, nodes, events, and namespaces.
-
-### 2.3 Create Persistent Storage
-
-```yaml
-# pvc.yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: rhoai-copilot-data
-  namespace: rhoai-copilot
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 2Gi
-```
-
-```bash
-oc apply -f pvc.yaml
-```
-
-### 2.4 Create Secrets
-
-```bash
 oc create secret generic rhoai-copilot-secrets \
   --from-literal=gemini-api-key='YOUR_GEMINI_API_KEY' \
+  --from-literal=argocd-base-url='https://openshift-gitops-server-openshift-gitops.apps.YOUR_CLUSTER' \
   --from-literal=argocd-api-token='YOUR_ARGOCD_TOKEN' \
   --from-literal=dashboard-password='YOUR_DASHBOARD_PASSWORD' \
   --from-literal=github-token='YOUR_GITHUB_PAT' \
@@ -202,7 +117,9 @@ oc create secret generic rhoai-copilot-secrets \
 
 See [Obtaining Credentials](../guides/obtaining-credentials.md) for how to get each value.
 
-### 2.5 Deploy with Kustomize
+> If you already created the namespace during the build phase (Option B/C), skip `oc new-project` and just create the secret.
+
+### 2.2 Deploy Everything with Kustomize
 
 From the repo root:
 
@@ -210,17 +127,17 @@ From the repo root:
 oc apply -k .
 ```
 
-This creates:
+This single command creates all core resources:
 - Namespace (`rhoai-copilot`)
 - ServiceAccount + ClusterRoleBinding (`cluster-reader`)
 - PVC for persistent agent state (2Gi)
 - 25 ConfigMaps (entrypoint, soul, config, + 22 skills)
 - Agent Deployment with all skill mounts
-- RHOAI MCP Deployment + Service
+- RHOAI MCP Deployment + Service + custom ClusterRole
 - Service (ClusterIP on port 18789)
-- Route (TLS edge termination with 300s timeout for long responses)
+- Route (TLS edge termination with 300s timeout for WebSocket)
 
-### 2.6 Verify Deployment
+### 2.3 Verify Deployment
 
 ```bash
 # Quick check
@@ -252,33 +169,23 @@ Expected output:
 
 ---
 
-## Phase 3: Deploy MCP Servers
+## Phase 3: Deploy Optional MCP Servers
 
-The agent connects to 5 MCP servers. ArgoCD and GitHub MCP run as embedded processes (stdio transport). RHOAI, OpenShift, and MLflow MCP run as separate pods (HTTP transport).
+The agent connects to 5 MCP servers. Three are already running after Phase 2:
 
-See [MCP Server Setup Guide](../guides/mcp-server-setup.md) for detailed per-server instructions.
+| MCP Server | Transport | Status After Phase 2 |
+|-----------|-----------|---------------------|
+| ArgoCD | stdio (embedded) | Running (pre-installed in image) |
+| GitHub | stdio (embedded) | Running (pre-installed in image, needs `github-token` in secret) |
+| RHOAI | HTTP (streamable-http) | Running (deployed by `oc apply -k .`) |
+| OpenShift | HTTP (streamable-http) | **Not deployed** — optional, separate namespace |
+| MLflow | HTTP (streamable-http) | **Not deployed** — optional, requires custom image |
 
-### Quick Summary
+See [MCP Server Setup Guide](../guides/mcp-server-setup.md) for detailed per-server configuration.
 
-| MCP Server | Transport | Deployment | Namespace |
-|-----------|-----------|-----------|-----------|
-| ArgoCD | stdio (embedded) | Pre-installed in image | Same pod |
-| GitHub | stdio (embedded) | Pre-installed in image | Same pod |
-| RHOAI | HTTP (streamable-http) | Separate Deployment or MCPServer CR | `rhoai-copilot` |
-| OpenShift | HTTP (streamable-http) | Separate Deployment | `ocp-mcp-server` |
-| MLflow | HTTP (streamable-http) | MCPServer CR | `redhat-ods-applications` |
+### 3.1 ArgoCD Token Generation
 
-### 3.1 ArgoCD MCP (No extra deployment needed)
-
-The `argocd-mcp` binary is pre-installed in the agent image. It only needs:
-- `ARGOCD_BASE_URL` — Your ArgoCD server URL
-- `ARGOCD_API_TOKEN` — API token for authentication
-
-Both are injected from the secret at runtime by `entrypoint.sh`.
-
-### 3.1b ArgoCD Token Generation
-
-See [Obtaining Credentials](../guides/obtaining-credentials.md) for full instructions. Key point: on OpenShift GitOps you must patch the **ArgoCD CR** (not the ConfigMap) to create the agent account:
+On OpenShift GitOps you must patch the **ArgoCD CR** (not the ConfigMap) to create the agent account:
 
 ```bash
 oc patch argocd openshift-gitops -n openshift-gitops --type merge -p '{
@@ -290,50 +197,43 @@ oc patch argocd openshift-gitops -n openshift-gitops --type merge -p '{
 }'
 ```
 
-`ARGOCD_BASE_URL` is set directly as an environment variable in the deployment (not from the secret). Example: `https://openshift-gitops-server-openshift-gitops.apps.YOUR_CLUSTER`.
+See [Obtaining Credentials](../guides/obtaining-credentials.md) for how to generate the API token from this account.
 
-### 3.2 RHOAI MCP
+### 3.2 RHOAI MCP (Already Deployed)
 
-Deploy the RHOAI MCP server in the agent namespace. Key requirements:
+The RHOAI MCP was deployed by `oc apply -k .` in Phase 2. Verify it's running:
+
+```bash
+oc get pods -n rhoai-copilot -l app=rhoai-mcp
+```
+
+Key design decisions already baked into the manifests:
 - **`HOME=/tmp` + emptyDir volume** — Python kubernetes client needs writable home
 - **`streamable-http` transport** — Hermes sends POST requests (SSE returns 405)
-- **Custom ClusterRole** — Needs specific CRD API groups (not just generic `cluster-reader`)
+- **Custom `rhoai-mcp-reader` ClusterRole** — Needs specific CRD API groups
 
-```bash
-oc apply -f mcp-servers/rhoai/deployment.yaml
-```
+The endpoint is `http://rhoai-mcp.rhoai-copilot.svc:8000/mcp` (note: `/mcp` not `/sse`).
 
-This creates the ServiceAccount, custom `rhoai-mcp-reader` ClusterRole, ClusterRoleBinding, Deployment, and Service.
+### 3.3 OpenShift MCP (Optional)
 
-The endpoint in `config.yaml` should be `http://rhoai-mcp.rhoai-copilot.svc:8000/mcp` (note: `/mcp` not `/sse`).
-
-### 3.3 NetworkPolicy Label (Critical for MLflow)
-
-If you deploy MLflow MCP, you must label the agent namespace to pass the RHOAI NetworkPolicy:
-
-```bash
-oc label namespace rhoai-copilot opendatahub.io/generated-namespace=true --overwrite
-```
-
-Without this, cross-namespace connections from the agent to MLflow will time out.
-
-### 3.4 OpenShift MCP (Optional)
+Provides general cluster queries (pods, nodes, events, namespaces). Deploys to its own namespace:
 
 ```bash
 oc apply -f mcp-servers/openshift/deployment.yaml
 ```
 
-### 3.5 MLflow MCP (Optional)
+### 3.4 MLflow MCP (Optional)
 
-See [MCP Server Setup Guide](../guides/mcp-server-setup.md#mlflow-mcp) for the full MLflow setup. Requires a custom image build.
+Requires a custom image build and network access to the MLflow tracking server. See [MCP Server Setup Guide](../guides/mcp-server-setup.md#mlflow-mcp) for the full instructions.
 
 ```bash
+# Label namespace for NetworkPolicy (required for cross-namespace access)
+oc label namespace rhoai-copilot opendatahub.io/generated-namespace=true --overwrite
+
 oc apply -f mcp-servers/mlflow/deployment.yaml
 ```
 
-### 3.6 GitHub MCP (No extra deployment needed)
-
-Pre-installed in the agent image (`npx @modelcontextprotocol/server-github`). Only needs `GITHUB_TOKEN` in the secret.
+Without the namespace label, connections from the agent to MLflow will time out.
 
 ---
 
@@ -361,13 +261,13 @@ The `300s` timeout prevents HAProxy from killing long-running agent responses.
 oc get route rhoai-copilot -n rhoai-copilot -o jsonpath='{.spec.host}'
 ```
 
-### 4.2 Login
+### 4.3 Login
 
 Open the URL in your browser. Login with:
 - Username: `admin`
 - Password: The value you set in `dashboard-password`
 
-### 4.3 Verify MCP Connectivity
+### 4.4 Verify MCP Connectivity
 
 In the chat interface, type:
 

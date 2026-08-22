@@ -11,15 +11,25 @@ validate:
 	@echo "=== Validating skills ==="
 	@errors=0; \
 	for skill in $$(find skills -name "SKILL.md" -not -path "skills/_template/*"); do \
-		for section in "Description" "Trigger Conditions" "Required MCP Tools" "Procedure" "Output Format" "Safety Constraints"; do \
-			if ! grep -q "## $$section" "$$skill"; then \
-				echo "ERROR: $$skill missing '## $$section'"; \
-				errors=$$((errors + 1)); \
-			fi; \
-		done; \
+		if ! head -1 "$$skill" | grep -q "^---"; then \
+			echo "ERROR: $$skill missing YAML frontmatter (must start with ---)"; \
+			errors=$$((errors + 1)); \
+		fi; \
+		if ! grep -q "^name:\|^skill:" "$$skill"; then \
+			echo "ERROR: $$skill missing 'name:' or 'skill:' in frontmatter"; \
+			errors=$$((errors + 1)); \
+		fi; \
+		if ! grep -q "^description:" "$$skill"; then \
+			echo "ERROR: $$skill missing 'description:' in frontmatter"; \
+			errors=$$((errors + 1)); \
+		fi; \
+		if ! grep -qi "## .*procedure\|## .*steps\|## .*step-by-step\|## .*automation\|## .*step 1\|## .*phase [0-9]" "$$skill"; then \
+			echo "ERROR: $$skill missing procedure/steps section"; \
+			errors=$$((errors + 1)); \
+		fi; \
 	done; \
 	if [ $$errors -gt 0 ]; then echo "$$errors errors found"; exit 1; fi
-	@echo "All skills valid"
+	@echo "All $$(find skills -name 'SKILL.md' -not -path 'skills/_template/*' | wc -l) skills valid"
 
 ## --- Build ---
 

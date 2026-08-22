@@ -13,7 +13,7 @@ Deploy RHOAI Copilot on your OpenShift cluster.
 - `oc` CLI authenticated to your cluster
 - A Gemini API key ([get one here](https://aistudio.google.com/))
 
-## Deploy in 4 Steps
+## Deploy in 6 Steps
 
 ### 1. Clone
 
