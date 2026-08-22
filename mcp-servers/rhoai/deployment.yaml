@@ -8,15 +8,62 @@ metadata:
     app.kubernetes.io/part-of: rhoai-copilot
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rhoai-mcp-reader
+  labels:
+    app.kubernetes.io/part-of: rhoai-copilot
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, events, nodes, namespaces, secrets, persistentvolumeclaims]
+    verbs: [get, list, watch]
+  - apiGroups: ["apps"]
+    resources: [deployments, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: ["kubeflow.org"]
+    resources: [notebooks]
+    verbs: [get, list, watch]
+  - apiGroups: ["serving.kserve.io"]
+    resources: [inferenceservices, servingruntimes]
+    verbs: [get, list, watch]
+  - apiGroups: ["datasciencepipelinesapplications.opendatahub.io"]
+    resources: [datasciencepipelinesapplications]
+    verbs: [get, list, watch]
+  - apiGroups: ["datasciencecluster.opendatahub.io"]
+    resources: [datascienceclusters]
+    verbs: [get, list, watch]
+  - apiGroups: ["dscinitialization.opendatahub.io"]
+    resources: [dscinitializations]
+    verbs: [get, list, watch]
+  - apiGroups: ["components.platform.opendatahub.io"]
+    resources: ["*"]
+    verbs: [get, list, watch]
+  - apiGroups: ["dashboard.opendatahub.io"]
+    resources: [acceleratorprofiles]
+    verbs: [get, list, watch]
+  - apiGroups: ["route.openshift.io"]
+    resources: [routes]
+    verbs: [get, list, watch]
+  - apiGroups: ["project.openshift.io"]
+    resources: [projects]
+    verbs: [get, list, watch]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: [trainjobs, trainingruntimes, clustertrainingruntimes]
+    verbs: [get, list, watch]
+  - apiGroups: ["storage.k8s.io"]
+    resources: [storageclasses]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: rhoai-mcp-cluster-reader
+  name: rhoai-mcp-reader-binding
   labels:
     app.kubernetes.io/part-of: rhoai-copilot
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-reader
+  name: rhoai-mcp-reader
 subjects:
   - kind: ServiceAccount
     name: rhoai-mcp

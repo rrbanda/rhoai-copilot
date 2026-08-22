@@ -62,39 +62,69 @@ mcp_servers:
 
 ### Generate ArgoCD API Token
 
+**Important**: On OpenShift GitOps, do NOT patch `argocd-cm` ConfigMap directly — the operator will revert it. Instead, patch the ArgoCD CR.
+
+#### Step 1: Create a dedicated account via the ArgoCD CR
+
 ```bash
-# Option 1: Using ArgoCD CLI
-argocd login openshift-gitops-server-openshift-gitops.apps.YOUR_CLUSTER \
-  --username admin \
-  --password $(oc get secret openshift-gitops-cluster -n openshift-gitops -o jsonpath='{.data.admin\.password}' | base64 -d) \
-  --insecure
-
-# Create a service account for the agent
-argocd account generate-token --account hermes-agent
-
-# Option 2: From OpenShift secret (if using default admin)
-oc get secret openshift-gitops-cluster -n openshift-gitops \
-  -o jsonpath='{.data.admin\.password}' | base64 -d
+oc patch argocd openshift-gitops -n openshift-gitops --type merge -p '{
+  "spec": {
+    "extraConfig": {
+      "accounts.hermes-agent": "apiKey,login",
+      "accounts.hermes-agent.enabled": "true"
+    },
+    "rbac": {
+      "policy": "p, role:copilot-agent, applications, get, */*, allow\np, role:copilot-agent, applications, sync, */*, allow\np, role:copilot-agent, clusters, get, *, allow\np, role:copilot-agent, projects, get, *, allow\np, role:copilot-agent, logs, get, */*, allow\ng, hermes-agent, role:copilot-agent"
+    }
+  }
+}'
 ```
 
-### RBAC for ArgoCD
+#### Step 2: Get the admin password
 
-If you create a dedicated ArgoCD account (`hermes-agent`), configure its RBAC in the ArgoCD `argocd-rbac-cm` ConfigMap:
-
+```bash
+ADMIN_PW=$(oc get secret openshift-gitops-cluster -n openshift-gitops \
+  -o jsonpath='{.data.admin\.password}' | base64 -d)
 ```
-p, role:hermes-agent, applications, get, */*, allow
-p, role:hermes-agent, applications, sync, */*, allow
-p, role:hermes-agent, clusters, get, *, allow
-p, role:hermes-agent, projects, get, *, allow
-p, role:hermes-agent, logs, get, */*, allow
-g, hermes-agent, role:hermes-agent
+
+#### Step 3: Generate the API token
+
+From inside the cluster (recommended — avoids TLS/gRPC issues):
+
+```bash
+ARGOCD_SERVER="https://openshift-gitops-server-openshift-gitops.apps.YOUR_CLUSTER"
+
+# Get admin session token
+ADMIN_TOKEN=$(curl -sk "$ARGOCD_SERVER/api/v1/session" \
+  -H "Content-Type: application/json" \
+  -d "{\"username\":\"admin\",\"password\":\"$ADMIN_PW\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+# Generate long-lived token for the agent account
+AGENT_TOKEN=$(curl -sk "$ARGOCD_SERVER/api/v1/account/hermes-agent/token" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"copilot-mcp","expiresIn":0}' | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+
+echo "$AGENT_TOKEN"
+```
+
+If external curl fails (gRPC on port 443), use the internal service from a pod:
+```bash
+# From inside any pod in the cluster:
+curl -sk http://openshift-gitops-server.openshift-gitops.svc:80/api/v1/session ...
 ```
 
 ### Verification
 
-Ask the agent: "List all ArgoCD applications"
+From inside the agent pod:
 
-Expected: Returns application list with health status, sync status, and namespace.
+```bash
+hermes mcp test argocd
+```
+
+Or ask via chat: "List all ArgoCD applications"
+
+Expected: Returns application list with health status, sync status, and namespace (16 tools available, 10 whitelisted).
 
 ---
 
@@ -102,7 +132,9 @@ Expected: Returns application list with health status, sync status, and namespac
 
 **Source**: [opendatahub-io/rhoai-mcp](https://github.com/opendatahub-io/rhoai-mcp)
 
-### Deployment Option A: Standalone Deployment
+### Deployment Option A: Standalone Deployment (Recommended)
+
+The RHOAI MCP needs a custom ClusterRole with specific API group permissions:
 
 ```yaml
 apiVersion: v1
@@ -112,13 +144,58 @@ metadata:
   namespace: rhoai-copilot
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rhoai-mcp-reader
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log, services, events, nodes, namespaces, secrets, persistentvolumeclaims]
+    verbs: [get, list, watch]
+  - apiGroups: ["apps"]
+    resources: [deployments, statefulsets]
+    verbs: [get, list, watch]
+  - apiGroups: ["kubeflow.org"]
+    resources: [notebooks]
+    verbs: [get, list, watch]
+  - apiGroups: ["serving.kserve.io"]
+    resources: [inferenceservices, servingruntimes]
+    verbs: [get, list, watch]
+  - apiGroups: ["datasciencepipelinesapplications.opendatahub.io"]
+    resources: [datasciencepipelinesapplications]
+    verbs: [get, list, watch]
+  - apiGroups: ["datasciencecluster.opendatahub.io"]
+    resources: [datascienceclusters]
+    verbs: [get, list, watch]
+  - apiGroups: ["dscinitialization.opendatahub.io"]
+    resources: [dscinitializations]
+    verbs: [get, list, watch]
+  - apiGroups: ["components.platform.opendatahub.io"]
+    resources: ["*"]
+    verbs: [get, list, watch]
+  - apiGroups: ["dashboard.opendatahub.io"]
+    resources: [acceleratorprofiles]
+    verbs: [get, list, watch]
+  - apiGroups: ["route.openshift.io"]
+    resources: [routes]
+    verbs: [get, list, watch]
+  - apiGroups: ["project.openshift.io"]
+    resources: [projects]
+    verbs: [get, list, watch]
+  - apiGroups: ["trainer.kubeflow.org"]
+    resources: [trainjobs, trainingruntimes, clustertrainingruntimes]
+    verbs: [get, list, watch]
+  - apiGroups: ["storage.k8s.io"]
+    resources: [storageclasses]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: rhoai-mcp-cluster-reader
+  name: rhoai-mcp-reader-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-reader
+  name: rhoai-mcp-reader
 subjects:
   - kind: ServiceAccount
     name: rhoai-mcp
@@ -143,18 +220,29 @@ spec:
       containers:
         - name: rhoai-mcp
           image: quay.io/opendatahub/rhoai-mcp:latest
+          args: ["--transport", "streamable-http"]
           ports:
             - containerPort: 8000
               name: http
           env:
+            - name: HOME
+              value: "/tmp"
+            - name: RHOAI_MCP_TRANSPORT
+              value: "streamable-http"
             - name: RHOAI_MCP_READ_ONLY_MODE
               value: "false"
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               memory: 128Mi
               cpu: 100m
             limits:
               memory: 256Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -170,9 +258,14 @@ spec:
       name: http
 ```
 
+Key notes:
+- **`HOME=/tmp` + emptyDir** — Required because the Python kubernetes client writes cache files. Without a writable home dir, the pod crashes.
+- **`streamable-http` transport** — Hermes sends POST requests. SSE endpoints only accept GET and return 405.
+- **Endpoint is `/mcp`** (NOT `/sse`) because of the transport choice.
+
 ### Deployment Option B: MCPServer Custom Resource
 
-If you have the MCP Lifecycle Operator installed:
+If you have the MCP Lifecycle Operator installed. **Warning**: the operator sets `readOnlyRootFilesystem: true` by default which may crash the RHOAI MCP pod. Prefer Option A above.
 
 ```yaml
 apiVersion: mcp.opendatahub.io/v1alpha1
@@ -188,6 +281,8 @@ spec:
   env:
     - name: RHOAI_MCP_READ_ONLY_MODE
       value: "false"
+    - name: HOME
+      value: "/tmp"
 ```
 
 ### Configuration in config.yaml
@@ -207,9 +302,15 @@ rhoai:
 
 ### Verification
 
-Ask the agent: "Explore the cluster"
+From inside the agent pod:
 
-Expected: Returns project count, model count, GPU availability, workbench count.
+```bash
+hermes mcp test rhoai
+```
+
+Or ask the agent via chat: "Explore the cluster"
+
+Expected: Returns project count, model count, GPU availability, workbench count (88 tools available, 38 whitelisted).
 
 ---
 
@@ -306,9 +407,15 @@ openshift:
 
 ### Verification
 
-Ask the agent: "List namespaces in the cluster"
+From inside the agent pod:
 
-Expected: Returns 100+ namespaces.
+```bash
+hermes mcp test openshift
+```
+
+Or ask via chat: "List namespaces in the cluster"
+
+Expected: Returns namespaces, pods, and node status (13 tools available).
 
 ---
 
@@ -402,7 +509,27 @@ spec:
         name: mlflow-mcp-startup
 ```
 
-### Alternative: Manual Deployment
+### Prerequisites: NetworkPolicy
+
+The agent namespace must be allowed through the RHOAI NetworkPolicy. Label it:
+
+```bash
+oc label namespace rhoai-copilot opendatahub.io/generated-namespace=true --overwrite
+```
+
+Without this, connections from the agent pod to `mlflow-mcp.redhat-ods-applications.svc` will time out.
+
+### Authentication: kubernetes-namespaced
+
+RHOAI's recommended MLflow auth approach is `MLFLOW_TRACKING_AUTH=kubernetes-namespaced`. The `sitecustomize.py` automatically:
+1. Reads the mounted ServiceAccount token
+2. Sets `MLFLOW_TRACKING_TOKEN`
+3. Sets `MLFLOW_WORKSPACE` header (via `X-MLFLOW-WORKSPACE`)
+4. Appends `/mlflow` path prefix to the tracking URI
+
+### Alternative: Manual Deployment (Recommended over MCPServer CR)
+
+The MCPServer CR sets `readOnlyRootFilesystem: true` which can cause issues. A manual Deployment avoids this:
 
 ```yaml
 apiVersion: apps/v1
@@ -429,15 +556,23 @@ spec:
           env:
             - name: MLFLOW_TRACKING_URI
               value: "http://mlflow-server.redhat-ods-applications.svc:5000"
+            - name: MLFLOW_TRACKING_AUTH
+              value: "kubernetes-namespaced"
+            - name: HOME
+              value: "/tmp"
             - name: PYTHONPATH
               value: "/mnt/startup"
           volumeMounts:
             - name: startup
               mountPath: /mnt/startup
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: startup
           configMap:
             name: mlflow-mcp-startup
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -461,9 +596,15 @@ mlflow:
   connect_timeout: 30
 ```
 
+Note: The endpoint is `/mcp` (streamable-http), NOT `/sse`. Hermes sends POST requests which SSE endpoints reject with 405.
+
 ### Verification
 
-Ask the agent: "Search my MLflow experiments"
+From inside the agent pod:
+
+```bash
+hermes mcp test mlflow
+```
 
 Expected: Returns list of experiments with IDs and names.
 
@@ -510,9 +651,15 @@ oc patch secret rhoai-copilot-secrets -n rhoai-copilot \
 
 ### Verification
 
-Ask the agent: "List branches in the rhoai-copilot repository"
+From inside the agent pod:
 
-Expected: Returns branch list from the configured repository.
+```bash
+hermes mcp test github
+```
+
+Or ask via chat: "List branches in the rhoai-copilot repository"
+
+Expected: Returns branch list (26 tools available, 8 whitelisted).
 
 ---
 

@@ -52,6 +52,48 @@ oc secrets link rhoai-copilot my-registry-creds --for=pull -n rhoai-copilot
 
 ## MCP Server Connectivity
 
+### RHOAI MCP: CrashLoopBackOff (readOnlyRootFilesystem)
+
+**Symptom**: RHOAI MCP pod crashes immediately after logging "Using in-cluster authentication".
+
+**Cause**: The MCP Lifecycle Operator sets `readOnlyRootFilesystem: true` on managed pods. The Python `kubernetes` client needs to write temp files (`~/.kube/cache`, SSL cert resolution).
+
+**Fix**: Deploy as a standalone Deployment instead of MCPServer CR, with `HOME=/tmp` and a writable emptyDir:
+
+```yaml
+env:
+  - name: HOME
+    value: "/tmp"
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp
+volumes:
+  - name: tmp
+    emptyDir: {}
+```
+
+If you must use the MCPServer CR, add writable storage at `/tmp`.
+
+---
+
+### RHOAI MCP: 405 Method Not Allowed on /sse
+
+**Symptom**: Hermes agent reports "405" when connecting to RHOAI MCP on the `/sse` endpoint.
+
+**Cause**: Hermes 0.19.0 sends POST to `/sse`, but the SSE endpoint only accepts GET. This is a protocol incompatibility.
+
+**Fix**: Switch RHOAI MCP to `streamable-http` transport (endpoint becomes `/mcp`):
+
+```bash
+oc set env deployment/rhoai-mcp RHOAI_MCP_TRANSPORT=streamable-http
+oc patch deployment/rhoai-mcp --type json \
+  -p '[{"op":"replace","path":"/spec/template/spec/containers/0/args","value":["--transport","streamable-http"]}]'
+```
+
+Update config.yaml URL from `http://rhoai-mcp...:8000/sse` to `http://rhoai-mcp...:8000/mcp`.
+
+---
+
 ### RHOAI MCP: Connection Refused
 
 **Symptom**: Agent reports "MCP server rhoai not reachable" or connection timeout.
@@ -98,6 +140,22 @@ oc adm policy add-cluster-role-to-user cluster-reader \
 oc auth can-i list namespaces --as=system:serviceaccount:rhoai-copilot:rhoai-copilot
 # yes
 ```
+
+---
+
+### MLflow MCP: Connection Timed Out from Agent Pod
+
+**Symptom**: Agent cannot reach MLflow MCP; curl from agent pod hangs then times out.
+
+**Cause**: `NetworkPolicy` in `redhat-ods-applications` namespace blocks cross-namespace traffic by default.
+
+**Fix**: Label the agent's namespace so the NetworkPolicy allows traffic:
+
+```bash
+oc label namespace rhoai-copilot opendatahub.io/generated-namespace=true --overwrite
+```
+
+This tells the RHOAI NetworkPolicy to allow ingress from your agent namespace.
 
 ---
 
@@ -199,6 +257,30 @@ oc rollout restart deployment/rhoai-copilot -n rhoai-copilot
 ---
 
 ## ArgoCD Issues
+
+### ArgoCD: ConfigMap Changes Reverted by Operator
+
+**Symptom**: You patch `argocd-cm` or `argocd-rbac-cm` ConfigMaps directly, but changes disappear within seconds.
+
+**Cause**: The OpenShift GitOps operator manages these ConfigMaps and reverts manual changes.
+
+**Fix**: Patch the ArgoCD Custom Resource instead:
+
+```bash
+oc patch argocd openshift-gitops -n openshift-gitops --type merge -p '{
+  "spec": {
+    "extraConfig": {
+      "accounts.hermes-agent": "apiKey,login",
+      "accounts.hermes-agent.enabled": "true"
+    },
+    "rbac": {
+      "policy": "p, role:copilot-agent, applications, get, */*, allow\np, role:copilot-agent, applications, sync, */*, allow\ng, hermes-agent, role:copilot-agent"
+    }
+  }
+}'
+```
+
+---
 
 ### ArgoCD MCP: Permission Denied for Specific Apps
 

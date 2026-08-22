@@ -71,26 +71,11 @@ The CI publishes a ready-to-use image on every push to main:
 
 No build step needed — skip to Phase 2.
 
-### 1.3 Option B: Local Build with Podman
+### 1.3 Option B: OpenShift Binary Build (Recommended for OpenShift)
 
-OpenShift runs on AMD64. If you're building on an ARM Mac (Apple Silicon), you MUST specify the platform:
-
-```bash
-podman build --platform linux/amd64 \
-  -t quay.io/YOUR_ORG/rhoai-copilot:latest \
-  -f runtimes/hermes/Containerfile .
-
-podman push quay.io/YOUR_ORG/rhoai-copilot:latest
-```
-
-Without `--platform linux/amd64`, the image will fail with `exec format error` on OpenShift.
-
-### 1.2 Build Option B: OpenShift Binary Build
-
-If you don't have podman/docker, use OpenShift's built-in build system:
+Build directly on-cluster using OpenShift's build system. This avoids platform mismatches and registry auth complexity:
 
 ```bash
-# Create BuildConfig and ImageStream
 oc new-project rhoai-copilot
 
 oc create imagestream rhoai-copilot -n rhoai-copilot
@@ -115,10 +100,29 @@ spec:
 EOF
 
 # Trigger build from local directory
-oc start-build rhoai-copilot -n rhoai-copilot --from-dir=.
+oc start-build rhoai-copilot -n rhoai-copilot --from-dir=. --follow
 ```
 
-The OpenShift build nodes are AMD64, so no platform flag is needed.
+The resulting image is stored at:
+```
+image-registry.openshift-image-registry.svc:5000/rhoai-copilot/rhoai-copilot:latest
+```
+
+Update `runtimes/hermes/deployment.yaml` to use this internal reference. OpenShift build nodes are AMD64, so no platform flag is needed.
+
+### 1.4 Option C: Local Build with Podman
+
+OpenShift runs on AMD64. If you're building on an ARM Mac (Apple Silicon), you MUST specify the platform:
+
+```bash
+podman build --platform linux/amd64 \
+  -t quay.io/YOUR_ORG/rhoai-copilot:latest \
+  -f runtimes/hermes/Containerfile .
+
+podman push quay.io/YOUR_ORG/rhoai-copilot:latest
+```
+
+Without `--platform linux/amd64`, the image will fail with `exec format error` on OpenShift.
 
 For disconnected environments, push to your internal registry instead.
 
@@ -272,96 +276,86 @@ The `argocd-mcp` binary is pre-installed in the agent image. It only needs:
 
 Both are injected from the secret at runtime by `entrypoint.sh`.
 
+### 3.1b ArgoCD Token Generation
+
+See [Obtaining Credentials](../guides/obtaining-credentials.md) for full instructions. Key point: on OpenShift GitOps you must patch the **ArgoCD CR** (not the ConfigMap) to create the agent account:
+
+```bash
+oc patch argocd openshift-gitops -n openshift-gitops --type merge -p '{
+  "spec": {
+    "extraConfig": {
+      "accounts.hermes-agent": "apiKey,login"
+    }
+  }
+}'
+```
+
+`ARGOCD_BASE_URL` is set directly as an environment variable in the deployment (not from the secret). Example: `https://openshift-gitops-server-openshift-gitops.apps.YOUR_CLUSTER`.
+
 ### 3.2 RHOAI MCP
 
-Deploy the RHOAI MCP server in the agent namespace:
+Deploy the RHOAI MCP server in the agent namespace. Key requirements:
+- **`HOME=/tmp` + emptyDir volume** — Python kubernetes client needs writable home
+- **`streamable-http` transport** — Hermes sends POST requests (SSE returns 405)
+- **Custom ClusterRole** — Needs specific CRD API groups (not just generic `cluster-reader`)
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: rhoai-mcp
-  namespace: rhoai-copilot
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: rhoai-mcp
-  template:
-    metadata:
-      labels:
-        app: rhoai-mcp
-    spec:
-      serviceAccountName: rhoai-mcp
-      containers:
-        - name: rhoai-mcp
-          image: quay.io/opendatahub/rhoai-mcp:latest
-          ports:
-            - containerPort: 8000
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: rhoai-mcp
-  namespace: rhoai-copilot
-spec:
-  selector:
-    app: rhoai-mcp
-  ports:
-    - port: 8000
-      targetPort: 8000
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: rhoai-mcp
-  namespace: rhoai-copilot
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: rhoai-mcp-cluster-reader
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-reader
-subjects:
-  - kind: ServiceAccount
-    name: rhoai-mcp
-    namespace: rhoai-copilot
+```bash
+oc apply -f mcp-servers/rhoai/deployment.yaml
 ```
 
-The config.yaml references it as:
-```yaml
-rhoai:
-  url: "http://rhoai-mcp.rhoai-copilot.svc:8000/mcp"
+This creates the ServiceAccount, custom `rhoai-mcp-reader` ClusterRole, ClusterRoleBinding, Deployment, and Service.
+
+The endpoint in `config.yaml` should be `http://rhoai-mcp.rhoai-copilot.svc:8000/mcp` (note: `/mcp` not `/sse`).
+
+### 3.3 NetworkPolicy Label (Critical for MLflow)
+
+If you deploy MLflow MCP, you must label the agent namespace to pass the RHOAI NetworkPolicy:
+
+```bash
+oc label namespace rhoai-copilot opendatahub.io/generated-namespace=true --overwrite
 ```
 
-### 3.3 OpenShift MCP
+Without this, cross-namespace connections from the agent to MLflow will time out.
 
-Deploy in its own namespace. See [MCP Server Setup](../guides/mcp-server-setup.md#openshift-mcp) for full manifests.
+### 3.4 OpenShift MCP (Optional)
 
-The config.yaml references it as:
-```yaml
-openshift:
-  url: "http://openshift-mcp-server.ocp-mcp-server.svc.cluster.local:8080/mcp"
+```bash
+oc apply -f mcp-servers/openshift/deployment.yaml
 ```
 
-Authentication is handled by injecting the agent's ServiceAccount token as a Bearer header in `entrypoint.sh`.
+### 3.5 MLflow MCP (Optional)
 
-### 3.4 MLflow MCP
+See [MCP Server Setup Guide](../guides/mcp-server-setup.md#mlflow-mcp) for the full MLflow setup. Requires a custom image build.
 
-Requires a custom image. See [MCP Server Setup](../guides/mcp-server-setup.md#mlflow-mcp) for the Containerfile and deployment.
+```bash
+oc apply -f mcp-servers/mlflow/deployment.yaml
+```
 
-### 3.5 GitHub MCP (Optional)
+### 3.6 GitHub MCP (No extra deployment needed)
 
-Pre-installed in the agent image. Only needs `GITHUB_TOKEN` in the secret.
+Pre-installed in the agent image (`npx @modelcontextprotocol/server-github`). Only needs `GITHUB_TOKEN` in the secret.
 
 ---
 
 ## Phase 4: Access the Dashboard
 
-### 4.1 Get the Route URL
+### 4.1 Route Configuration
+
+The agent uses WebSockets for real-time chat. The Route must have proper annotations:
+
+```yaml
+metadata:
+  annotations:
+    haproxy.router.openshift.io/timeout: "300s"
+spec:
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+```
+
+The `300s` timeout prevents HAProxy from killing long-running agent responses.
+
+### 4.2 Get the Route URL
 
 ```bash
 oc get route rhoai-copilot -n rhoai-copilot -o jsonpath='{.spec.host}'
@@ -385,7 +379,20 @@ The agent should return a list of applications with their health and sync status
 
 ## Phase 5: Verify All MCP Servers
 
-Run these verification commands from within the agent pod:
+### Quick Verification (from agent pod shell)
+
+```bash
+AGENT_POD=$(oc get pods -n rhoai-copilot -l app=rhoai-copilot -o jsonpath='{.items[0].metadata.name}')
+
+# Use Hermes built-in MCP test command
+oc exec -it $AGENT_POD -n rhoai-copilot -- hermes mcp test argocd
+oc exec -it $AGENT_POD -n rhoai-copilot -- hermes mcp test rhoai
+oc exec -it $AGENT_POD -n rhoai-copilot -- hermes mcp test openshift
+oc exec -it $AGENT_POD -n rhoai-copilot -- hermes mcp test mlflow
+oc exec -it $AGENT_POD -n rhoai-copilot -- hermes mcp test github
+```
+
+### Detailed Verification (raw MCP protocol)
 
 ```bash
 AGENT_POD=$(oc get pods -n rhoai-copilot -l app=rhoai-copilot -o jsonpath='{.items[0].metadata.name}')
