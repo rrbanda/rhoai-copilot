@@ -26,10 +26,10 @@ expected_tools:
 
 expected_behavior:
   - Checks existing hardware profiles to avoid duplicates
-  - Creates a HardwareProfile CR with appropriate display name (e.g., "A100 80GB GPU")
+  - Creates a HardwareProfile CR with appropriate display name
   - Configures correct resource requests and limits for GPU (nvidia.com/gpu), CPU, and memory
   - Sets node selector or tolerations to target A100 GPU nodes specifically
-  - Configures multiple size tiers (small: 1 GPU, medium: 2 GPUs, large: 4 GPUs)
+  - Configures multiple size tiers (small 1 GPU, medium 2 GPUs, large 4 GPUs)
   - Adds descriptive labels and annotations for dashboard display
   - Sets the profile as visible in the RHOAI Dashboard for workbench creation
   - Validates that the hardware profile matches actual node capabilities
