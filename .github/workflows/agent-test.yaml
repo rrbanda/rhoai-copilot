@@ -1,0 +1,54 @@
+name: Agent Test
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'agent/**'
+      - 'manifests/**'
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Prompt to send to the agent'
+        required: false
+        default: 'Run make eval-list and verify all scenarios load correctly'
+
+jobs:
+  agent-test:
+    runs-on: ubuntu-latest
+    # Only run if Anthropic key is configured (skip on forks)
+    if: github.event_name == 'workflow_dispatch' || secrets.ANTHROPIC_API_KEY != ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install agentic-ci
+        run: pip install agentic-ci
+
+      - name: Run agent with safety gates
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          agentic-ci run --backend local \
+            "${{ github.event.inputs.prompt || 'Run make eval-list and verify all scenarios load correctly' }}" \
+            --post-gates sensitive-files,gitleaks \
+            --no-streaming
+
+  # Standalone gitleaks scan (runs even without Anthropic key)
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
