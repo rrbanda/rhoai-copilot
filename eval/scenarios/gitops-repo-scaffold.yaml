@@ -4,7 +4,10 @@ persona: platform-engineer
 phase: platform-setup
 skill: gitops-repo-scaffold
 
-input: "Set up a GitOps repo for deploying RHOAI 3.4.2 on my disconnected cluster. The repo is myorg/rhoai-deploy and my mirror registry is bastion.lab:8443. I need KServe, workbenches, and pipelines. OCP 4.20."
+input: >-
+  Set up a GitOps repo for deploying RHOAI 3.4.2 on my disconnected cluster.
+  The repo is myorg/rhoai-deploy and my mirror registry is bastion.lab:8443.
+  I need KServe, workbenches, and pipelines. OCP 4.20.
 
 context:
   cluster: disconnected
